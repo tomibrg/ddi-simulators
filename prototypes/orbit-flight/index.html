@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORBIT · Flight timeline prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Tokens: mirror of ORBIT / Foundations in Figma (Grupo-4). */
+  :root {
+    --orbit-color-bg: #090909;
+    --orbit-color-bg-alt: #101010;
+    --orbit-color-ink: #050505;
+    --orbit-color-text-primary: #FFF7ED;
+    --orbit-color-text-secondary: #ABABAB;
+    --orbit-color-accent: #F5983B;
+    --orbit-color-accent-soft: #FFB56E;
+    --orbit-color-line: #414141;
+    --orbit-radius-2: 2px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: var(--orbit-color-bg); }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--orbit-color-text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1440px; margin: 0 auto; padding: 80px 80px 64px; }
+
+  /* Type: same scale as the Figma text styles */
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; color: var(--orbit-color-accent-soft); }
+  h1 { font-size: 48px; line-height: 1.1; font-weight: 700; letter-spacing: -1.2px; margin-top: 16px; }
+  .lead { font-size: 16px; line-height: 1.5; color: var(--orbit-color-text-secondary); margin-top: 16px; max-width: 560px; }
+  .note { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--orbit-color-text-secondary); }
+
+  /* Stage */
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 432px; gap: 32px; margin-top: 64px; }
+  .scene {
+    position: relative; min-height: 460px; overflow: hidden; background: var(--orbit-color-ink);
+    border: 1px solid var(--orbit-color-line); border-radius: var(--orbit-radius-2);
+    touch-action: none; user-select: none;
+  }
+  .scene-inner { position: absolute; inset: 0; transform-origin: 50% 0; will-change: transform; }
+  .scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .floor {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 48px;
+    background: var(--orbit-color-ink); border-top: 1px solid var(--orbit-color-line);
+  }
+  .floor::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 24px; background: linear-gradient(to bottom, rgba(245,152,59,.07), transparent); }
+  .obj { position: absolute; left: 0; top: 0; cursor: grab; will-change: transform; touch-action: none; }
+  .obj.grabbed { cursor: grabbing; }
+  .obj i { display: block; width: 100%; height: 100%; background: var(--orbit-color-text-primary); border-radius: var(--orbit-radius-2); box-shadow: 0 0 0 1px rgba(5,5,5,.6) inset; }
+  .obj.ball i { border-radius: 50%; background: var(--orbit-color-accent); }
+  .obj.pen i { background: var(--orbit-color-accent-soft); }
+  .obj.card i { background: var(--orbit-color-text-secondary); }
+  .scene-top { position: absolute; left: 20px; right: 20px; top: 16px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+  .scene-top .btn { pointer-events: auto; }
+  .hint { position: absolute; left: 0; right: 0; top: 64px; text-align: center; pointer-events: none; opacity: 0; transition: opacity .6s; }
+  .hint.on { opacity: 1; }
+  .hint span { display: inline-block; color: var(--orbit-color-text-primary); padding: 8px 14px; background: rgba(9,9,9,.66); border-radius: var(--orbit-radius-2); }
+  .glow { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; }
+
+  /* Buttons */
+  .btn {
+    font: 700 12px/1 'Inter', sans-serif; letter-spacing: .5px; text-transform: uppercase;
+    height: 36px; padding: 0 16px; border-radius: var(--orbit-radius-2); cursor: pointer;
+    border: 1px solid var(--orbit-color-line); background: rgba(9,9,9,.66); color: var(--orbit-color-text-primary);
+    display: inline-flex; align-items: center; gap: 8px; transition: border-color .2s, color .2s;
+  }
+  .btn:hover { border-color: var(--orbit-color-accent-soft); color: var(--orbit-color-accent-soft); }
+  .btn.primary { background: var(--orbit-color-accent); color: var(--orbit-color-ink); border-color: var(--orbit-color-accent); height: 40px; padding: 0 20px; }
+  .btn.primary:hover { background: var(--orbit-color-accent-soft); color: var(--orbit-color-ink); border-color: var(--orbit-color-accent-soft); }
+  .btn:focus-visible, .chart:focus-visible, .obj:focus-visible { outline: 2px solid var(--orbit-color-accent-soft); outline-offset: 3px; }
+
+  /* Readout */
+  .readout {
+    background: var(--orbit-color-bg-alt); border: 1px solid var(--orbit-color-line); border-radius: var(--orbit-radius-2);
+    padding: 32px; display: flex; flex-direction: column; gap: 24px;
+  }
+  .time { display: flex; align-items: baseline; justify-content: space-between; }
+  .time b { font-size: 66px; line-height: 1; font-weight: 800; letter-spacing: -2.4px; font-variant-numeric: tabular-nums; }
+  .stop-title { font-size: 22px; font-weight: 700; letter-spacing: -.3px; margin-top: 6px; }
+  .feel { min-height: 76px; border-top: 1px solid var(--orbit-color-line); padding-top: 20px; }
+  .feel p { font-size: 17px; line-height: 1.45; margin-top: 8px; transition: opacity .35s ease, transform .35s ease; }
+  .feel p.swap, .stop-title.swap { opacity: 0; transform: translateY(6px); }
+  .stop-title { transition: opacity .35s ease, transform .35s ease; }
+  .metrics { display: grid; gap: 28px; }
+  .metric .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .metric .val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+  .metric .val small { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; color: var(--orbit-color-text-secondary); margin-left: 6px; }
+  .bar { position: relative; height: 4px; margin-top: 10px; background: var(--orbit-color-line); border-radius: var(--orbit-radius-2); }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--orbit-color-accent); border-radius: var(--orbit-radius-2); width: 0; }
+  .bar u { position: absolute; top: -4px; width: 1px; height: 12px; background: var(--orbit-color-text-secondary); opacity: .7; text-decoration: none; }
+  .bar u::after { content: attr(data-l); position: absolute; top: 14px; left: 0; transform: translateX(-50%); font-size: 10px; font-weight: 500; letter-spacing: 1px; color: var(--orbit-color-text-secondary); white-space: nowrap; }
+  .weight { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--orbit-color-line); padding-top: 20px; font-size: 14px; color: var(--orbit-color-text-secondary); }
+  .weight b { color: var(--orbit-color-text-primary); font-variant-numeric: tabular-nums; }
+  .stepper { display: inline-flex; align-items: center; gap: 8px; }
+  .stepper button { width: 28px; height: 28px; padding: 0; justify-content: center; font-size: 14px; }
+
+  /* Chart */
+  .chart-wrap { margin-top: 64px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .chart { display: block; width: 100%; height: auto; overflow: visible; cursor: ew-resize; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .chart text { font-family: 'Inter', sans-serif; fill: var(--orbit-color-text-secondary); font-size: 11px; font-weight: 600; letter-spacing: .5px; }
+  .chart .stop { cursor: pointer; }
+  .chart .stop circle { transition: fill .2s; }
+  .chart .tick-label { transition: fill .2s; }
+  .chart .tick-label.on { fill: var(--orbit-color-accent-soft); }
+  .drag-label { transition: opacity .4s; }
+  .drag-pulse { animation: pulse 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes pulse { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(2.6); opacity: 0; } }
+  .legend { margin-top: 24px; display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+
+  /* #shot: renders only the scene, used to export the static still for Figma. */
+  body.shot .page { padding: 0; max-width: none; }
+  body.shot header, body.shot .readout, body.shot .chart-wrap, body.shot .scene-top, body.shot .hint { display: none; }
+  body.shot .stage { display: block; margin: 0; }
+  body.shot .scene { width: 816px; height: 558px; border: 0; border-radius: 0; }
+
+  @media (max-width: 1100px) {
+    .page { padding: 48px 24px; }
+    h1 { font-size: 36px; }
+    .stage { grid-template-columns: 1fr; margin-top: 40px; }
+    .scene { height: 380px; }
+    .time b { font-size: 52px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .drag-pulse { animation: none; } }
+</style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <div class="eyebrow">The flight</div>
+    <h1>Ten minutes,<br>start to finish.</h1>
+    <p class="lead">Drag the line to fly it. Illustrative timing and data.</p>
+  </header>
+
+  <section class="stage" aria-label="Flight simulation">
+    <div class="scene" id="scene">
+      <div class="scene-inner" id="sceneInner">
+        <canvas id="sky"></canvas>
+        <canvas class="glow" id="glow"></canvas>
+        <div class="floor"></div>
+        <div id="objs"></div>
+      </div>
+      <div class="scene-top">
+        <span class="note">Illustrative · not to scale</span>
+        <button class="btn" id="sound" aria-pressed="false">Sound off</button>
+      </div>
+      <div class="hint note" id="hint"><span>Weightless. Grab something and throw it.</span></div>
+    </div>
+
+    <aside class="readout" aria-live="off">
+      <div>
+        <div class="time"><b id="clock">T+4:00</b><span class="note" id="idx">Stop 5 / 8</span></div>
+        <div class="stop-title" id="stopTitle">Highest point</div>
+      </div>
+      <div class="feel">
+        <div class="eyebrow">You feel</div>
+        <p id="feelText">A black sky above, a thin blue line below.</p>
+      </div>
+      <div class="metrics">
+        <div class="metric">
+          <div class="row"><span class="eyebrow" style="color:var(--orbit-color-text-secondary)">Force</span><span class="val"><span id="gVal">0.0</span><small>G</small></span></div>
+          <div class="bar"><i id="gBar"></i><u style="left:16.66%" data-l="1 G"></u></div>
+        </div>
+        <div class="metric alt">
+          <div class="row"><span class="eyebrow" style="color:var(--orbit-color-text-secondary)">Altitude</span><span class="val"><span id="aVal">100</span><small>KM</small></span></div>
+          <div class="bar"><i id="aBar"></i><u style="left:11%" data-l="AIRLINER"></u></div>
+        </div>
+        <div class="metric">
+          <div class="row"><span class="eyebrow" style="color:var(--orbit-color-text-secondary)">Speed</span><span class="val"><span id="sVal">0</span><small>KM/H</small></span></div>
+          <div class="bar"><i id="sBar"></i></div>
+        </div>
+      </div>
+      <div class="weight">
+        <span>You'd weigh <b id="wNow">70 kg</b></span>
+        <span class="stepper">
+          <button class="btn" id="wMinus" aria-label="Lower your weight">−</button>
+          <span id="wBase">70 kg</span>
+          <button class="btn" id="wPlus" aria-label="Raise your weight">+</button>
+        </span>
+      </div>
+    </aside>
+  </section>
+
+  <section class="chart-wrap">
+    <div class="chart-head">
+      <button class="btn primary" id="play">Play flight</button>
+      <span class="note">Drag, click a stop, or use ← →</span>
+    </div>
+    <svg class="chart" id="chart" viewBox="0 -30 1280 290" role="slider" tabindex="0"
+         aria-label="Flight time" aria-valuemin="0" aria-valuemax="10" aria-valuenow="4">
+      <defs><clipPath id="done"><rect id="doneRect" x="0" y="0" width="0" height="260"/></clipPath></defs>
+      <rect x="384" y="0" width="512" height="220" fill="#F5983B" fill-opacity=".1"/>
+      <text x="400" y="204">WEIGHTLESS</text>
+      <text x="0" y="24">ALTITUDE</text>
+      <rect x="0" y="220" width="1280" height="1" fill="#414141"/>
+      <path id="curveDim" fill="none" stroke="#414141" stroke-width="2"/>
+      <path id="curveDone" fill="none" stroke="#F5983B" stroke-width="2" clip-path="url(#done)"/>
+      <g id="stops"></g>
+      <g id="handle" style="pointer-events:none">
+        <line id="hLine" x1="0" x2="0" y1="0" y2="221" stroke="#FFB56E" stroke-width="1" stroke-dasharray="3 4"/>
+        <circle class="drag-pulse" id="hPulse" r="10" fill="#F5983B"/>
+        <circle id="hDot" r="9" fill="#F5983B" stroke="#090909" stroke-width="3"/>
+        <text class="drag-label" id="dragLabel" text-anchor="middle" y="-14" style="fill:#FFB56E">DRAG</text>
+      </g>
+    </svg>
+    <div class="legend">
+      <span class="note">Sample figures. Not final · not flight data</span>
+      <span class="note">ORBIT · Earth orbit experience</span>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const smooth = (a, b, v) => { const k = clamp((v - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+  const mix = (c1, c2, k) => c1.map((v, i) => Math.round(lerp(v, c2[i], k)));
+  const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- Flight data (illustrative, same shape as the Figma chart) ---------- */
+  const T_MAX = 10;
+  // y in the Figma chart (0 = apex, 200 = ground), one sample every 0.1 min.
+  const CURVE_Y = [200,190.1,180.5,171.1,162,153.1,144.5,136.1,128,120.1,112.5,105.1,98,91.1,84.5,78.1,72,66.1,60.5,55.1,50,45.1,40.5,36.1,32,28.1,24.5,21.1,18,15.1,12.5,10.1,8,6.1,4.5,3.1,2,1.1,0.5,0.1,0,
+    0.1,0.3,0.7,1.3,2.1,3,4,5.2,6.6,8.1,9.8,11.7,13.7,15.8,18.1,20.6,23.1,25.9,28.7,31.7,34.8,38.1,41.4,44.9,48.5,52.2,56,59.9,63.9,68,72.2,76.5,80.9,85.3,89.8,94.3,98.9,103.5,108.2,112.9,117.7,122.5,127.3,132,136.8,141.6,146.4,151.1,155.8,160.5,165.1,169.6,174.1,178.4,182.6,186.7,190.6,194.2,197.5,200];
+  const ALT_APEX_KM = 100;
+  const sample = (arr, t) => { const f = clamp(t, 0, T_MAX) * 10; const i = Math.min(Math.floor(f), arr.length - 2); return lerp(arr[i], arr[i + 1], f - i); };
+  const curveY = (t) => sample(CURVE_Y, t);
+  const altKm = (t) => (200 - curveY(t)) / 200 * ALT_APEX_KM;
+
+  const keys = (pts) => (t) => {
+    if (t <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) {
+      if (t <= pts[i][0]) { const [t0, v0] = pts[i - 1], [t1, v1] = pts[i]; const k = (t - t0) / (t1 - t0); return lerp(v0, v1, k * k * (3 - 2 * k)); }
+    }
+    return pts[pts.length - 1][1];
+  };
+  const gForce = keys([[0,1],[0.15,1.3],[1,3],[2,3.4],[2.45,3.1],[2.6,0.3],[3,0],[6.9,0],[7.05,0.4],[7.35,2.6],[7.75,5.4],[8.2,2.2],[8.5,1],[10,1]]);
+  const speedKmh = keys([[0,0],[1,1500],[2.5,3500],[3,3000],[4,420],[5,900],[7,2700],[7.75,3000],[8.3,900],[8.5,250],[9.5,25],[10,0]]);
+
+  const STOPS = [
+    { t: 0,   n: 'T+0:00',  title: 'Liftoff',          feel: 'A heavy push into your seat.' },
+    { t: 1,   n: 'T+1:00',  title: 'Max thrust',       feel: 'Strong G-force pressing you down.' },
+    { t: 2.5, n: 'T+2:30',  title: 'Engine cutoff',    feel: 'A sudden quiet.' },
+    { t: 3,   n: 'T+3:00',  title: 'Weightlessness',   feel: 'Everything, including you, floats.' },
+    { t: 4,   n: 'T+4:00',  title: 'Highest point',    feel: 'A black sky above, a thin blue line below.' },
+    { t: 7,   n: 'T+7:00',  title: 'Return',           feel: 'Weight and G-force return.' },
+    { t: 8.5, n: 'T+8:30',  title: 'Parachutes',       feel: 'A gentle sway.' },
+    { t: 10,  n: 'T+10:00', title: 'Landing',          feel: 'Ground under your feet.' },
+  ];
+  const fmt = (t) => { const s = Math.round(clamp(t, 0, T_MAX) * 60); return `T+${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+  /* ---------- State ---------- */
+  const state = { target: 4, t: 4, playing: false, dragging: false, weight: 70, sound: false, stopIdx: -1, touched: false };
+
+  /* ---------- Chart ---------- */
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const chart = $('chart');
+  const xOf = (t) => t / T_MAX * 1280;
+  const yOf = (t) => curveY(t) + 20;
+  const pathD = CURVE_Y.map((y, i) => `${i ? 'L' : 'M'}${(i * 12.8).toFixed(1)} ${(y + 20).toFixed(1)}`).join(' ');
+  $('curveDim').setAttribute('d', pathD);
+  $('curveDone').setAttribute('d', pathD);
+  const stopsG = $('stops');
+  const stopEls = STOPS.map((s, i) => {
+    const g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('class', 'stop');
+    const x = xOf(s.t), y = yOf(s.t);
+    const hit = document.createElementNS(SVGNS, 'circle');
+    hit.setAttribute('cx', x); hit.setAttribute('cy', y); hit.setAttribute('r', 22); hit.setAttribute('fill', 'transparent');
+    const dot = document.createElementNS(SVGNS, 'circle');
+    dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', 6); dot.setAttribute('fill', '#090909'); dot.setAttribute('stroke', '#F5983B'); dot.setAttribute('stroke-width', 2);
+    if (y < 220) {
+      const guide = document.createElementNS(SVGNS, 'rect');
+      guide.setAttribute('x', x); guide.setAttribute('y', y + 6); guide.setAttribute('width', 1); guide.setAttribute('height', 221 - y - 6); guide.setAttribute('fill', '#414141');
+      g.appendChild(guide);
+    }
+    const label = document.createElementNS(SVGNS, 'text');
+    label.setAttribute('x', clamp(x, 24, 1256)); label.setAttribute('y', 244); label.setAttribute('text-anchor', i === 0 ? 'start' : i === STOPS.length - 1 ? 'end' : 'middle');
+    if (i === 0) label.setAttribute('x', 0);
+    if (i === STOPS.length - 1) label.setAttribute('x', 1280);
+    label.setAttribute('class', 'tick-label');
+    label.textContent = s.n;
+    const title = document.createElementNS(SVGNS, 'title'); title.textContent = `${s.n} · ${s.title}`; g.appendChild(title);
+    g.append(hit, dot, label);
+    g.dataset.i = i;
+    g.addEventListener('pointerdown', (e) => { e.stopPropagation(); state.touched = true; state.playing = false; state.target = STOPS[i].t; syncPlay(); });
+    stopsG.appendChild(g);
+    return { dot, label };
+  });
+
+  const pointerT = (e) => {
+    const pt = chart.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(chart.getScreenCTM().inverse());
+    return clamp(p.x / 1280 * T_MAX, 0, T_MAX);
+  };
+  chart.addEventListener('pointerdown', (e) => {
+    chart.setPointerCapture(e.pointerId);
+    state.dragging = true; state.touched = true; state.playing = false; syncPlay();
+    state.target = pointerT(e);
+  });
+  chart.addEventListener('pointermove', (e) => { if (state.dragging) state.target = pointerT(e); });
+  const endDrag = () => { state.dragging = false; };
+  chart.addEventListener('pointerup', endDrag);
+  chart.addEventListener('pointercancel', endDrag);
+  chart.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 0.5 : 0.1;
+    if (e.key === 'ArrowRight') state.target = clamp(state.target + step, 0, T_MAX);
+    else if (e.key === 'ArrowLeft') state.target = clamp(state.target - step, 0, T_MAX);
+    else if (e.key === 'Home') state.target = 0;
+    else if (e.key === 'End') state.target = T_MAX;
+    else return;
+    state.touched = true; state.playing = false; syncPlay(); e.preventDefault();
+  });
+
+  /* ---------- Play ---------- */
+  const playBtn = $('play');
+  const syncPlay = () => { playBtn.textContent = state.playing ? 'Pause' : (state.target >= T_MAX - 0.01 ? 'Replay flight' : 'Play flight'); };
+  playBtn.addEventListener('click', () => {
+    state.touched = true;
+    if (!state.playing && state.target >= T_MAX - 0.01) { state.target = 0; state.t = 0; }
+    state.playing = !state.playing; syncPlay();
+  });
+
+  /* ---------- Weight ---------- */
+  const setWeight = (w) => { state.weight = clamp(w, 40, 120); $('wBase').textContent = `${state.weight} kg`; };
+  $('wMinus').addEventListener('click', () => setWeight(state.weight - 5));
+  $('wPlus').addEventListener('click', () => setWeight(state.weight + 5));
+
+  /* ---------- Sky scene ---------- */
+  const sky = $('sky'), glow = $('glow'), scene = $('scene'), inner = $('sceneInner');
+  const sctx = sky.getContext('2d'), gctx = glow.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+  const stars = Array.from({ length: 170 }, () => ({ x: Math.random(), y: Math.random() * 0.8, r: Math.random() * 1.2 + 0.25, a: Math.random() * 0.6 + 0.35 }));
+  const resize = () => {
+    DPR = Math.min(devicePixelRatio || 1, 2);
+    W = scene.clientWidth; H = scene.clientHeight;
+    for (const c of [sky, glow]) { c.width = W * DPR; c.height = H * DPR; }
+    sctx.setTransform(DPR, 0, 0, DPR, 0, 0); gctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  };
+  new ResizeObserver(resize).observe(scene);
+
+  const FLOOR = 48;
+  const drawScene = (t, a, g, time) => {
+    const s = smooth(0.04, 0.78, a);                 // 0 = daylight, 1 = black sky
+    const horizon = H * (0.6 + 0.1 * a);
+    const R = lerp(W * 6, W * 1.05, Math.pow(a, 0.7));
+    const topC = mix([66, 126, 184], [2, 4, 10], s);
+    const botC = mix([236, 160, 104], [12, 28, 54], smooth(0, 0.9, a));
+    const grad = sctx.createLinearGradient(0, 0, 0, horizon);
+    grad.addColorStop(0, rgb(topC)); grad.addColorStop(1, rgb(botC));
+    sctx.fillStyle = grad; sctx.fillRect(0, 0, W, H);
+
+    // stars
+    const sa = smooth(0.22, 0.8, a);
+    if (sa > 0.01) for (const st of stars) { sctx.fillStyle = `rgba(255,247,237,${st.a * sa})`; sctx.fillRect(st.x * W, st.y * H, st.r, st.r); }
+
+    // sunrise glow
+    const sg = sctx.createRadialGradient(W * 0.62, horizon, 0, W * 0.62, horizon, W * 0.55);
+    sg.addColorStop(0, `rgba(245,152,59,${0.5 - 0.28 * s})`); sg.addColorStop(1, 'rgba(245,152,59,0)');
+    sctx.fillStyle = sg; sctx.fillRect(0, 0, W, H);
+
+    // earth
+    const cx = W / 2, cy = horizon + R;
+    const eg = sctx.createLinearGradient(0, horizon, 0, horizon + Math.min(R, H));
+    const e0 = mix([20, 22, 22], [18, 58, 104], smooth(0, 0.8, a)), e1 = mix([6, 8, 9], [4, 14, 30], smooth(0, 0.8, a));
+    eg.addColorStop(0, rgb(e0)); eg.addColorStop(1, rgb(e1));
+    sctx.beginPath(); sctx.arc(cx, cy, R, 0, Math.PI * 2); sctx.fillStyle = eg; sctx.fill();
+    // thin blue line (atmosphere)
+    const rim = mix([245, 170, 90], [110, 175, 255], smooth(0.05, 0.7, a));
+    sctx.save();
+    sctx.beginPath(); sctx.arc(cx, cy, R, 0, Math.PI * 2);
+    sctx.lineWidth = lerp(1.5, 3, a); sctx.strokeStyle = rgb(rim, 0.85);
+    sctx.shadowColor = rgb(rim, 0.9); sctx.shadowBlur = lerp(10, 26, a); sctx.stroke();
+    sctx.restore();
+    // clouds (cheap bands) while low
+    if (a < 0.5) { sctx.fillStyle = `rgba(255,247,237,${0.07 * (1 - a * 2)})`; for (let i = 0; i < 5; i++) sctx.fillRect(W * (0.1 + i * 0.19), horizon + 8 + i * 5, W * 0.14, 2); }
+
+    // cabin vignette + frame feel
+    const vg = sctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+    vg.addColorStop(0, 'rgba(5,5,5,0)'); vg.addColorStop(1, 'rgba(5,5,5,0.7)');
+    sctx.fillStyle = vg; sctx.fillRect(0, 0, W, H);
+
+    // thrust / reentry light
+    gctx.clearRect(0, 0, W, H);
+    const thrust = t < 2.6 ? clamp((g - 1) / 2.4, 0, 1) : 0;
+    if (thrust > 0.02) {
+      const flick = 0.85 + Math.random() * 0.3;
+      const tg = gctx.createLinearGradient(0, H, 0, H * 0.35);
+      tg.addColorStop(0, `rgba(245,152,59,${0.38 * thrust * flick})`); tg.addColorStop(1, 'rgba(245,152,59,0)');
+      gctx.fillStyle = tg; gctx.fillRect(0, 0, W, H);
+    }
+    const reentry = t > 6.9 && t < 8.6 ? clamp((g - 1.5) / 3.9, 0, 1) : 0;
+    if (reentry > 0.02) {
+      const rg = gctx.createRadialGradient(W / 2, H * 0.5, H * 0.1, W / 2, H * 0.5, H * 0.95);
+      rg.addColorStop(0, 'rgba(245,152,59,0)'); rg.addColorStop(1, `rgba(245,120,40,${0.42 * reentry * (0.9 + Math.random() * 0.2)})`);
+      gctx.fillStyle = rg; gctx.fillRect(0, 0, W, H);
+    }
+
+    // camera: shake under thrust / reentry, sway under parachutes
+    let tx = 0, ty = 0, rot = 0;
+    if (!reduceMotion) {
+      const shake = Math.max(thrust, reentry) * 3.2;
+      tx = (Math.random() - 0.5) * shake; ty = (Math.random() - 0.5) * shake;
+      if (t > 8.5 && t < 9.95) rot = Math.sin(time * 1.3) * 1.1 * smooth(8.5, 8.9, t);
+    }
+    inner.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) rotate(${rot.toFixed(3)}deg)`;
+  };
+
+  /* ---------- Floating objects ---------- */
+  const objsEl = $('objs');
+  const DEFS = [
+    { cls: 'ball', w: 34, h: 34 },
+    { cls: 'pen',  w: 78, h: 9 },
+    { cls: 'card', w: 54, h: 34 },
+    { cls: '',     w: 30, h: 30 },
+    { cls: 'pen',  w: 56, h: 9 },
+  ];
+  const objs = DEFS.map((d, i) => {
+    const el = document.createElement('div');
+    el.className = `obj ${d.cls}`; el.style.width = d.w + 'px'; el.style.height = d.h + 'px'; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<i></i>'; objsEl.appendChild(el);
+    return { el, w: d.w, h: d.h, x: 0, y: 0, vx: 0, vy: 0, r: 0, vr: 0, grabbed: false, i };
+  });
+  let placed = false;
+  const SHOT = /shot/.test(location.hash);
+  const FLOAT_SPOTS = [[0.14, 0.26], [0.34, 0.5], [0.52, 0.2], [0.7, 0.4], [0.86, 0.16]];
+  const placeObjs = (g) => {
+    objs.forEach((o, i) => {
+      if (g < 0.1) {
+        o.x = W * FLOAT_SPOTS[i][0]; o.y = H * FLOAT_SPOTS[i][1];
+        if (!SHOT) { o.vx = (Math.random() - 0.5) * 30; o.vy = (Math.random() - 0.5) * 30; o.vr = (Math.random() - 0.5) * 40; }
+        o.r = (i * 37) % 60 - 30;
+      } else { o.x = W * (0.12 + 0.17 * i) + (Math.random() - 0.5) * 30; o.y = H - FLOOR - o.h; }
+    });
+    placed = true;
+  };
+  let grab = null, last = { x: 0, y: 0, t: 0 }, vel = { x: 0, vy: 0 };
+  objsEl.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.obj'); if (!el) return;
+    const o = objs.find((q) => q.el === el); if (!o) return;
+    const rect = scene.getBoundingClientRect();
+    grab = { o, dx: e.clientX - rect.left - o.x, dy: e.clientY - rect.top - o.y };
+    o.grabbed = true; el.classList.add('grabbed'); el.setPointerCapture(e.pointerId);
+    last = { x: e.clientX, y: e.clientY, t: performance.now() }; vel = { x: 0, y: 0 };
+  });
+  objsEl.addEventListener('pointermove', (e) => {
+    if (!grab) return;
+    const rect = scene.getBoundingClientRect(); const now = performance.now();
+    const dt = Math.max((now - last.t) / 1000, 0.001);
+    vel = { x: lerp(vel.x, (e.clientX - last.x) / dt, 0.5), y: lerp(vel.y, (e.clientY - last.y) / dt, 0.5) };
+    last = { x: e.clientX, y: e.clientY, t: now };
+    grab.o.x = clamp(e.clientX - rect.left - grab.dx, 0, W - grab.o.w);
+    grab.o.y = clamp(e.clientY - rect.top - grab.dy, 0, H - FLOOR - grab.o.h);
+  });
+  const release = () => { if (!grab) return; const o = grab.o; o.grabbed = false; o.el.classList.remove('grabbed'); o.vx = clamp(vel.x, -900, 900); o.vy = clamp(vel.y, -900, 900); o.vr = o.vx * 0.2; grab = null; };
+  objsEl.addEventListener('pointerup', release); objsEl.addEventListener('pointercancel', release);
+
+  let prevG = 1;
+  const stepPhysics = (dt, g) => {
+    if (!placed || !W) return;
+    // Engine cutoff: everything lifts off the floor.
+    if (prevG > 0.5 && g <= 0.5) for (const o of objs) if (!o.grabbed) { o.vy = -(40 + Math.random() * 90); o.vx += (Math.random() - 0.5) * 80; o.vr = (Math.random() - 0.5) * 90; }
+    prevG = g;
+    const grav = g * 900, floorY = H - FLOOR;
+    for (const o of objs) {
+      if (o.grabbed) continue;
+      o.vy += grav * dt;
+      const drag = g < 0.1 ? 0.06 : 1.2;
+      o.vx *= 1 - Math.min(drag * dt, 1); o.vy *= 1 - Math.min((g < 0.1 ? 0.06 : 0.3) * dt, 1);
+      o.x += o.vx * dt; o.y += o.vy * dt; o.r += o.vr * dt;
+      if (o.x < 0) { o.x = 0; o.vx = Math.abs(o.vx) * 0.8; }
+      if (o.x > W - o.w) { o.x = W - o.w; o.vx = -Math.abs(o.vx) * 0.8; }
+      if (o.y < 0) { o.y = 0; o.vy = Math.abs(o.vy) * 0.8; }
+      if (o.y > floorY - o.h) {
+        o.y = floorY - o.h;
+        if (Math.abs(o.vy) > 40) o.vy = -o.vy * 0.28; else o.vy = 0;
+        o.vx *= 0.9; o.vr *= 0.8;
+      }
+    }
+    // Resting objects lie flat once weight is back.
+    for (const o of objs) o.el.style.transform = `translate(${o.x.toFixed(1)}px, ${o.y.toFixed(1)}px) rotate(${(g > 0.3 && o.y >= floorY - o.h - 1 ? 0 : o.r).toFixed(1)}deg)`;
+  };
+
+  /* ---------- Sound (WebAudio, off by default) ---------- */
+  let ac = null, noise, lp, hp, gain, wind;
+  const initAudio = () => {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    let b = 0; for (let i = 0; i < len; i++) { b = (b + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = b * 3.5; }   // brown-ish noise
+    noise = ac.createBufferSource(); noise.buffer = buf; noise.loop = true;
+    lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 200;
+    hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 30;
+    gain = ac.createGain(); gain.gain.value = 0;
+    noise.connect(lp).connect(hp).connect(gain).connect(ac.destination); noise.start();
+  };
+  const updateAudio = (t, g) => {
+    if (!ac || !state.sound) return;
+    const now = ac.currentTime;
+    let vol = 0, freq = 200;
+    if (t < 2.55) { vol = clamp((g - 0.9) / 2.5, 0, 1) * 0.6; freq = 140 + g * 120; }                    // ascent roar
+    else if (t > 6.95 && t < 8.5) { vol = clamp((g - 0.6) / 4.8, 0, 1) * 0.5; freq = 500 + g * 400; }    // reentry rush
+    else if (t >= 8.5 && t < 9.9) { vol = 0.07; freq = 900; }                                            // parachute air
+    const moving = state.playing || state.dragging || Math.abs(state.t - state.target) > 0.003;   // silent when paused
+    gain.gain.setTargetAtTime(moving ? vol : 0, now, 0.08);
+    lp.frequency.setTargetAtTime(freq, now, 0.1);
+  };
+  const soundBtn = $('sound');
+  soundBtn.addEventListener('click', () => {
+    state.sound = !state.sound;
+    if (state.sound) { if (!ac) initAudio(); ac.resume(); } else if (gain) gain.gain.setTargetAtTime(0, ac.currentTime, 0.05);
+    soundBtn.textContent = state.sound ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', state.sound);
+  });
+
+  /* ---------- Readout ---------- */
+  const el = { clock: $('clock'), idx: $('idx'), title: $('stopTitle'), feel: $('feelText'), g: $('gVal'), gBar: $('gBar'), a: $('aVal'), aBar: $('aBar'), s: $('sVal'), sBar: $('sBar'), w: $('wNow') };
+  const setStop = (i) => {
+    state.stopIdx = i;
+    el.title.classList.add('swap'); el.feel.classList.add('swap');
+    setTimeout(() => {
+      const s = STOPS[Math.max(i, 0)];
+      el.title.textContent = s.title; el.feel.textContent = s.feel; el.idx.textContent = `Stop ${Math.max(i, 0) + 1} / ${STOPS.length}`;
+      el.title.classList.remove('swap'); el.feel.classList.remove('swap');
+    }, reduceMotion ? 0 : 160);
+    stopEls.forEach((s, k) => s.label.classList.toggle('on', k === i));
+  };
+  const hint = $('hint');
+
+  /* ---------- Main loop ---------- */
+  let prev = performance.now();
+  const frame = (now) => {
+    const dt = Math.min((now - prev) / 1000, 0.05); prev = now;
+    if (state.playing) {
+      state.target = Math.min(T_MAX, state.target + dt * 0.4);          // ~25 s for the whole flight
+      if (state.target >= T_MAX) { state.playing = false; syncPlay(); }
+    }
+    const follow = state.playing ? 1 : 1 - Math.exp(-dt * 14);          // smooth scrubbing
+    state.t = state.playing ? state.target : lerp(state.t, state.target, follow);
+    if (Math.abs(state.t - state.target) < 0.0005) state.t = state.target;
+
+    const t = state.t, g = gForce(t), a = altKm(t), v = speedKmh(t);
+    if (W && !placed) placeObjs(g);
+
+    // chart
+    const x = xOf(t), y = yOf(t);
+    $('doneRect').setAttribute('width', x);
+    $('hLine').setAttribute('x1', x); $('hLine').setAttribute('x2', x);
+    for (const id of ['hDot', 'hPulse']) { $(id).setAttribute('cx', x); $(id).setAttribute('cy', y); }
+    $('dragLabel').setAttribute('x', x); $('dragLabel').setAttribute('y', y - 18);
+    $('dragLabel').style.opacity = state.touched ? 0 : 1; $('hPulse').style.display = state.touched ? 'none' : '';
+    stopEls.forEach((s, k) => s.dot.setAttribute('fill', STOPS[k].t <= t + 0.001 ? '#F5983B' : '#090909'));
+    chart.setAttribute('aria-valuenow', t.toFixed(2)); chart.setAttribute('aria-valuetext', fmt(t));
+    let idx = 0; STOPS.forEach((s, k) => { if (s.t <= t + 0.001) idx = k; });
+    if (idx !== state.stopIdx) setStop(idx);
+
+    // readout
+    el.clock.textContent = fmt(t);
+    el.g.textContent = g.toFixed(1); el.gBar.style.width = `${clamp(g / 6, 0, 1) * 100}%`;
+    el.a.textContent = a < 10 ? a.toFixed(1) : Math.round(a); el.aBar.style.width = `${clamp(a / ALT_APEX_KM, 0, 1) * 100}%`;
+    el.s.textContent = Math.round(v / 10) * 10; el.sBar.style.width = `${clamp(v / 3600, 0, 1) * 100}%`;
+    el.w.textContent = `${Math.round(state.weight * g)} kg`;
+
+    // scene
+    if (W) { drawScene(t, a / ALT_APEX_KM, g, now / 1000); stepPhysics(dt, g); }
+    hint.classList.toggle('on', g < 0.1 && state.touched === true && t > 3.2 && t < 6.8 && !grab);
+    updateAudio(t, g);
+    requestAnimationFrame(frame);
+  };
+  // Optional deep link, e.g. index.html#t=3.5 opens at T+3:30.
+  const m = /[#&]t=([\d.]+)/.exec(location.hash);
+  if (m) { state.target = state.t = clamp(parseFloat(m[1]), 0, T_MAX); state.touched = /touched/.test(location.hash); }
+  syncPlay(); setWeight(70);
+  if (SHOT) document.body.classList.add('shot');
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

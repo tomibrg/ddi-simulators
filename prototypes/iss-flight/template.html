@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORBITA · Space station flight prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Tokens: mirror of ORBIT / Foundations in Figma (Grupo-4). */
+  :root {
+    --orbit-color-bg: #090909;
+    --orbit-color-bg-alt: #101010;
+    --orbit-color-ink: #050505;
+    --orbit-color-text-primary: #FFF7ED;
+    --orbit-color-text-secondary: #ABABAB;
+    --orbit-color-accent: #F5983B;
+    --orbit-color-accent-soft: #FFB56E;
+    --orbit-color-line: #414141;
+    --orbit-radius-2: 2px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { background: var(--orbit-color-bg); }
+  body { font-family: 'Inter', system-ui, sans-serif; color: var(--orbit-color-text-primary); -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1440px; margin: 0 auto; padding: 80px 80px 64px; }
+
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; color: var(--orbit-color-accent-soft); }
+  h1 { font-size: 48px; line-height: 1.1; font-weight: 700; letter-spacing: -1.2px; margin-top: 16px; }
+  .lead { font-size: 16px; line-height: 1.5; color: var(--orbit-color-text-secondary); margin-top: 16px; max-width: 560px; }
+  .note { font-size: 10px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; color: var(--orbit-color-text-secondary); }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) 432px; gap: 32px; margin-top: 64px; }
+  .scene {
+    position: relative; min-height: 460px; overflow: hidden; background: var(--orbit-color-ink);
+    border: 1px solid var(--orbit-color-line); border-radius: var(--orbit-radius-2); user-select: none;
+  }
+  .scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  .scene-top { position: absolute; z-index: 2; left: 20px; right: 20px; top: 22px; display: flex; justify-content: space-between; pointer-events: none; }
+  .scene-over { position: absolute; z-index: 2; left: 20px; bottom: 124px; pointer-events: none; }
+  .scene-bottom { position: absolute; z-index: 2; left: 20px; right: 20px; bottom: 20px; display: flex; justify-content: flex-end; pointer-events: none; }
+  .scene-hud { display: inline-flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,247,237,.7); }
+  .scene-hud::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--orbit-color-accent); box-shadow: 0 0 0 4px rgba(245,152,59,.14); }
+  .scene .note { text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+  .flash { position: absolute; z-index: 3; inset: 0; background: #fff7ed; opacity: 0; pointer-events: none; }
+  .flash.go { animation: flash .5s ease-out; }
+  @keyframes flash { 0% { opacity: .85; } 100% { opacity: 0; } }
+
+  .btn {
+    font: 700 12px/1 'Inter', sans-serif; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap;
+    height: 36px; padding: 0 16px; border-radius: var(--orbit-radius-2); cursor: pointer;
+    border: 1px solid var(--orbit-color-line); background: rgba(9,9,9,.66); color: var(--orbit-color-text-primary);
+    display: inline-flex; align-items: center; gap: 8px; transition: border-color .2s, color .2s;
+  }
+  .btn:hover { border-color: var(--orbit-color-accent-soft); color: var(--orbit-color-accent-soft); }
+  .btn.primary { background: var(--orbit-color-accent); color: var(--orbit-color-ink); border-color: var(--orbit-color-accent); height: 40px; padding: 0 20px; }
+  .btn.primary:hover { background: var(--orbit-color-accent-soft); color: var(--orbit-color-ink); border-color: var(--orbit-color-accent-soft); }
+  .btn:focus-visible, .chart:focus-visible { outline: 2px solid var(--orbit-color-accent-soft); outline-offset: 3px; }
+
+  .readout {
+    background: var(--orbit-color-bg-alt); border: 1px solid var(--orbit-color-line); border-radius: var(--orbit-radius-2);
+    padding: 32px; display: flex; flex-direction: column; gap: 24px;
+  }
+  .time { display: flex; align-items: baseline; justify-content: space-between; }
+  .time b { font-size: 66px; line-height: 1; font-weight: 800; letter-spacing: -2.4px; font-variant-numeric: tabular-nums; }
+  .stop-title { font-size: 22px; font-weight: 700; letter-spacing: -.3px; margin-top: 6px; transition: opacity .35s ease, transform .35s ease; }
+  .feel { border-top: 1px solid var(--orbit-color-line); padding-top: 20px; }
+  .feel p { font-size: 17px; line-height: 1.45; margin-top: 8px; min-height: 50px; transition: opacity .35s ease, transform .35s ease; }
+  .feel p.swap, .stop-title.swap { opacity: 0; transform: translateY(6px); }
+  .metrics-details { border-top: 1px solid var(--orbit-color-line); padding-top: 18px; }
+  .metrics-details summary { cursor: pointer; list-style: none; font-size: 11px; font-weight: 600; letter-spacing: 1.1px; color: var(--orbit-color-accent-soft); text-transform: uppercase; }
+  .metrics-details summary::-webkit-details-marker { display: none; }
+  .metrics-details summary::after { content: '+'; float: right; color: var(--orbit-color-text-secondary); font-size: 16px; line-height: 11px; }
+  .metrics-details[open] summary::after { content: '–'; }
+  .metrics { display: grid; gap: 28px; padding-top: 20px; }
+  .metric .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .metric .lab { color: var(--orbit-color-text-secondary); }
+  .metric .val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+  .metric .val small { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; color: var(--orbit-color-text-secondary); margin-left: 6px; }
+  .bar { position: relative; height: 4px; margin-top: 10px; background: var(--orbit-color-line); border-radius: var(--orbit-radius-2); }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--orbit-color-accent); border-radius: var(--orbit-radius-2); width: 0; }
+  .msg { border-top: 1px solid var(--orbit-color-line); padding-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .msg-status { font-size: 14px; line-height: 1.4; color: var(--orbit-color-text-secondary); min-height: 40px; display: flex; align-items: center; }
+  .msg-status b { color: var(--orbit-color-text-primary); font-weight: 600; }
+
+  .chart-wrap { margin-top: 64px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 8px; }
+  .chart-hint { display: inline-flex; align-items: center; gap: 8px; transition: opacity .25s ease, transform .25s ease; }
+  .chart-hint::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--orbit-color-accent); box-shadow: 0 0 0 5px rgba(245,152,59,.14); }
+  .chart-hint.is-hidden { opacity: 0; transform: translateY(-3px); }
+  .chart { display: block; width: 100%; height: auto; overflow: visible; cursor: ew-resize; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .chart text { font-family: 'Inter', sans-serif; fill: var(--orbit-color-text-secondary); font-size: 11px; font-weight: 600; letter-spacing: .5px; }
+  .chart .stop { cursor: pointer; }
+  .chart .tick-label { transition: fill .2s; }
+  .chart .tick-label.on { fill: var(--orbit-color-accent-soft); }
+  .chart .stop-name { font-size: 9px; font-weight: 700; letter-spacing: .8px; }
+  .drag-label { transition: opacity .4s; }
+  .drag-pulse { animation: pulse 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes pulse { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(2.6); opacity: 0; } }
+  .legend { margin-top: 24px; display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+
+  /* #shot: renders only the scene, used to export the static still for Figma. */
+  body.shot .page { padding: 0; max-width: none; }
+  body.shot header, body.shot .readout, body.shot .chart-wrap, body.shot .scene-top, body.shot .scene-bottom, body.shot .scene-over { display: none; }
+  body.shot .stage { display: block; margin: 0; }
+  body.shot .scene { width: 816px; height: 460px; border: 0; border-radius: 0; }
+
+  @media (max-width: 1100px) {
+    .page { padding: 48px 24px; }
+    h1 { font-size: 36px; }
+    .stage { grid-template-columns: 1fr; margin-top: 40px; }
+    .scene { min-height: 380px; }
+    .time b { font-size: 52px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .drag-pulse, .flash.go { animation: none; } }
+</style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <div class="eyebrow">On board</div>
+    <h1>One day,<br>sixteen sunrises.</h1>
+    <p class="lead">Drag the line to live a day on the station. Illustrative schedule and data.</p>
+  </header>
+
+  <section class="stage" aria-label="Station day simulation">
+    <div class="scene" id="scene">
+      <canvas id="sky" role="img" aria-label="Illustrated Cupola view of Earth from orbit, changing from sunrise to day to night as the day on board progresses">Illustrated Cupola view of Earth.</canvas>
+      <div class="flash" id="flash"></div>
+      <div class="scene-top">
+        <span class="note" id="viewTag">Cupola view · sunrise 10 / 16</span>
+        <span class="scene-hud">0G · On orbit</span>
+      </div>
+      <div class="scene-over"><span class="note" id="overTag">Over · South America</span></div>
+      <div class="scene-bottom"><span class="note">Illustrative view · not to scale</span></div>
+    </div>
+
+    <aside class="readout">
+      <div>
+        <div class="time"><b id="clock">14:40</b><span class="note" id="idx">Moment 4 / 6</span></div>
+        <div class="stop-title" id="stopTitle">Window time</div>
+      </div>
+      <div class="feel">
+        <div class="eyebrow">You feel</div>
+        <p id="feelText"></p>
+      </div>
+      <details class="metrics-details">
+        <summary>Flight data</summary>
+        <div class="metrics">
+          <div class="metric">
+            <div class="row"><span class="eyebrow lab">Altitude</span><span class="val"><span>408</span><small>KM</small></span></div>
+            <div class="bar"><i style="width:81.6%"></i></div>
+          </div>
+          <div class="metric">
+            <div class="row"><span class="eyebrow lab">Orbit speed</span><span class="val"><span>27,600</span><small>KM/H</small></span></div>
+            <div class="bar"><i style="width:92%"></i></div>
+          </div>
+          <div class="metric">
+            <div class="row"><span class="eyebrow lab" id="nextLab">Next sunset</span><span class="val"><span id="nextVal">0</span><small>MIN</small></span></div>
+            <div class="bar"><i id="nextBar"></i></div>
+          </div>
+        </div>
+      </details>
+      <div class="msg">
+        <span class="msg-status" id="msgStatus" role="status" aria-live="polite">Take a photo of what you see.</span>
+        <button class="btn" id="photo" type="button">Take a photo</button>
+      </div>
+    </aside>
+  </section>
+
+  <section class="chart-wrap">
+    <div class="chart-head">
+      <button class="btn primary" id="play" type="button">Play a day</button>
+      <span class="note chart-hint" id="chartHint">Drag the line, select a moment, or use ← →</span>
+    </div>
+    <svg class="chart" id="chart" viewBox="0 -30 1280 320" role="slider" tabindex="0"
+         aria-label="Time of day on board" aria-valuemin="0" aria-valuemax="24" aria-valuenow="14.7">
+      <defs><clipPath id="done"><rect id="doneRect" x="0" y="-30" width="0" height="290"/></clipPath></defs>
+      <text x="0" y="12">DAYLIGHT · 16 SUNRISES</text>
+      <rect x="0" y="220" width="1280" height="1" fill="#414141"/>
+      <g id="sunTicks"></g>
+      <path id="curveDim" fill="none" stroke="#414141" stroke-width="2"/>
+      <path id="curveDone" fill="none" stroke="#F5983B" stroke-width="2" clip-path="url(#done)"/>
+      <g id="stops"></g>
+      <g id="handle" style="pointer-events:none">
+        <line id="hLine" x1="0" x2="0" y1="0" y2="221" stroke="#FFB56E" stroke-width="1" stroke-dasharray="3 4"/>
+        <circle class="drag-pulse" id="hPulse" r="10" fill="#F5983B"/>
+        <circle id="hDot" r="9" fill="#F5983B" stroke="#090909" stroke-width="3"/>
+        <text class="drag-label" id="dragLabel" text-anchor="middle" style="fill:#FFB56E">DRAG</text>
+      </g>
+    </svg>
+    <div class="legend">
+      <span class="note">Sample figures. Not final · not flight data</span>
+      <span class="note">ORBITA · Space station experience</span>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const smooth = (a, b, v) => { const k = clamp((v - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SHOT = /shot/.test(location.hash);
+
+  /* ---------- Orbit model (illustrative): one day on board, ~92.9 min per orbit ---------- */
+  const DAY = 1440, P = 92.9, PHI0 = 50, DAY_FRAC = 0.58;        // minutes; PHI0 puts 16 sunrises inside the day
+  const INC = 51.6 * Math.PI / 180, OMEGA_E = 360 / 1436.07;    // inclination (rad); Earth rotation (deg/min)
+  const phase = (t) => (((t + PHI0) / P) % 1 + 1) % 1;
+  const gOf = (t) => { const f = phase(t); return f > 0.5 ? f - 1 : f; };          // 0 = sunrise, DAY_FRAC = sunset
+  const night = (t) => { const g = gOf(t); return g < 0.3 ? 1 - smooth(-0.04, 0, g) : smooth(DAY_FRAC - 0.04, DAY_FRAC, g); };
+  const nightSoft = (t) => { const g = gOf(t); return g < 0.3 ? 1 - smooth(-0.1, 0.06, g) : smooth(DAY_FRAC - 0.08, DAY_FRAC + 0.05, g); };   // wider ramps, for the chart line
+  const bloom = (t) => { const g = gOf(t); return Math.max(Math.exp(-Math.pow(g / 0.03, 2)), Math.exp(-Math.pow((g - DAY_FRAC) / 0.03, 2))); };
+  const sunrisesSoFar = (t) => clamp(Math.floor((t + PHI0) / P), 0, 16);
+  const nextEvent = (t) => { const f = phase(t); return f < DAY_FRAC ? { label: 'Next sunset', mins: (DAY_FRAC - f) * P, frac: f / DAY_FRAC } : { label: 'Next sunrise', mins: (1 - f) * P, frac: (f - DAY_FRAC) / (1 - DAY_FRAC) }; };
+
+  // Ground track: pinned so that at 14:40 the station is over southern South America.
+  const T_PIN = 880, LAT_PIN = -25, LON_PIN = -60;
+  const sinU = Math.sin(LAT_PIN * Math.PI / 180) / Math.sin(INC);
+  const U0 = (Math.PI + Math.asin(-sinU)) - (T_PIN / P) * 2 * Math.PI;
+  const rawLon = (t) => { const u = (t / P) * 2 * Math.PI + U0; return Math.atan2(Math.cos(INC) * Math.sin(u), Math.cos(u)) * 180 / Math.PI - OMEGA_E * t; };
+  const LON0 = LON_PIN - rawLon(T_PIN);
+  const track = (t) => {
+    const u = (t / P) * 2 * Math.PI + U0;
+    const lat = Math.asin(Math.sin(INC) * Math.sin(u)) * 180 / Math.PI;
+    const lon = ((rawLon(t) + LON0 + 540) % 360 + 360) % 360 - 180;
+    return [lon, lat];
+  };
+
+  const STOPS = [
+    { t: 420,  title: 'Wake up',     feel: 'You float out of your sleeping bag, with a sunrise already behind the window.' },
+    { t: 570,  title: 'Exercise',    feel: 'Two hours a day strapped to a treadmill, with Earth sliding by.' },
+    { t: 750,  title: 'Science',     feel: 'You tend plants and run experiments, all of it floating.' },
+    { t: 880,  title: 'Window time', feel: 'Hours disappear watching the planet turn.' },
+    { t: 1140, title: 'Dinner',      feel: 'Food floats. So do the crumbs.' },
+    { t: 1350, title: 'Sleep',       feel: 'You sleep clipped to a wall while sunrises keep passing outside.' },
+  ];
+  const fmtClock = (t) => { const m = Math.round(clamp(t, 0, DAY)); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+
+  /* ---------- Land (very simplified) for the ground-track map ---------- */
+  const LAND = [
+    ['North America', [[-168,66],[-140,70],[-120,72],[-95,72],[-80,68],[-62,60],[-56,52],[-66,44],[-76,36],[-81,30],[-80,25],[-90,29],[-97,26],[-105,22],[-110,23],[-117,32],[-124,40],[-125,48],[-135,56],[-150,60],[-165,62]]],
+    ['North America', [[-105,22],[-97,18],[-90,15],[-83,10],[-78,8],[-82,8],[-87,13],[-93,16],[-100,18]]],
+    ['South America', [[-78,8],[-72,12],[-62,10],[-52,5],[-35,-6],[-39,-14],[-48,-26],[-58,-35],[-65,-42],[-68,-52],[-72,-50],[-74,-40],[-71,-28],[-70,-18],[-76,-14],[-81,-5],[-80,2]]],
+    ['Europe', [[-10,36],[-9,43],[-2,48],[2,51],[8,55],[10,58],[20,60],[30,60],[40,56],[40,45],[28,41],[20,38],[12,38],[5,37]]],
+    ['Africa', [[-17,21],[-10,30],[-5,36],[10,37],[22,32],[33,31],[43,12],[51,12],[40,-5],[40,-16],[35,-25],[25,-34],[18,-34],[12,-17],[9,-1],[8,5],[-8,4],[-17,14]]],
+    ['Asia', [[40,45],[30,42],[36,36],[35,30],[43,13],[52,16],[58,24],[67,25],[73,19],[78,8],[80,15],[88,22],[93,17],[100,3],[104,10],[108,21],[120,24],[122,31],[120,38],[130,43],[142,52],[160,60],[178,65],[170,70],[140,73],[100,78],[70,73],[60,68],[45,68],[40,58]]],
+    ['Australia', [[114,-22],[122,-18],[131,-12],[142,-11],[146,-19],[153,-27],[150,-37],[140,-38],[131,-31],[115,-34]]],
+  ];
+  const inPoly = (x, y, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+  const regionAt = (lon, lat) => {
+    for (const [name, poly] of LAND) if (inPoly(lon, lat, poly)) return name;
+    if (lon < -70 || lon > 120 && lat > -5 && lon > 130 || lon >= 150) return 'the Pacific Ocean';
+    if (lon < 20 && lon >= -70) return 'the Atlantic Ocean';
+    if (lon >= 20 && lon < 120 && lat < 25) return 'the Indian Ocean';
+    return 'the Pacific Ocean';
+  };
+
+  /* ---------- State ---------- */
+  const state = { target: 880, t: 880, playing: false, dragging: false, stopIdx: -1, touched: false };
+
+  /* ---------- Chart ---------- */
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const chart = $('chart');
+  const xOf = (t) => t / DAY * 1280;
+  const yOf = (t) => 30 + 170 * nightSoft(t);
+  const pts = []; for (let i = 0; i <= 288; i++) pts.push(i * DAY / 288);
+  const pathD = pts.map((t, i) => `${i ? 'L' : 'M'}${xOf(t).toFixed(1)} ${yOf(t).toFixed(1)}`).join(' ');
+  $('curveDim').setAttribute('d', pathD); $('curveDone').setAttribute('d', pathD);
+  const mk = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+  for (let k = 0; k <= 16; k++) { const ts = k * P - PHI0; if (ts > 0 && ts < DAY) $('sunTicks').appendChild(mk('rect', { x: xOf(ts) - .5, y: 214, width: 1, height: 12, fill: '#FFB56E', 'fill-opacity': .55 })); }
+  const stopEls = STOPS.map((s, i) => {
+    const g = mk('g', { class: 'stop' });
+    const x = xOf(s.t), y = yOf(s.t);
+    if (y < 212) g.appendChild(mk('rect', { x, y: y + 6, width: 1, height: 221 - y - 6, fill: '#414141' }));
+    const hit = mk('circle', { cx: x, cy: y, r: 22, fill: 'transparent' });
+    const dot = mk('circle', { cx: x, cy: y, r: 6, fill: '#090909', stroke: '#F5983B', 'stroke-width': 2 });
+    const label = mk('text', { x, y: 244, 'text-anchor': 'middle', class: 'tick-label' }); label.textContent = fmtClock(s.t);
+    const name = mk('text', { x, y: 264, 'text-anchor': 'middle', class: 'stop-name' }); name.textContent = s.title.toUpperCase();
+    const title = mk('title', {}); title.textContent = `${fmtClock(s.t)} · ${s.title}`;
+    g.append(title, hit, dot, label, name);
+    g.addEventListener('pointerdown', (e) => { e.stopPropagation(); hideHint(); state.touched = true; state.playing = false; state.target = s.t; syncPlay(); });
+    $('stops').appendChild(g);
+    return { dot, label, name };
+  });
+  const hideHint = () => $('chartHint').classList.add('is-hidden');
+  const pointerT = (e) => { const pt = chart.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return clamp(pt.matrixTransform(chart.getScreenCTM().inverse()).x / 1280 * DAY, 0, DAY); };
+  chart.addEventListener('pointerdown', (e) => { chart.setPointerCapture(e.pointerId); hideHint(); state.dragging = true; state.touched = true; state.playing = false; syncPlay(); state.target = pointerT(e); });
+  chart.addEventListener('pointermove', (e) => { if (state.dragging) state.target = pointerT(e); });
+  const endDrag = () => { state.dragging = false; };
+  chart.addEventListener('pointerup', endDrag); chart.addEventListener('pointercancel', endDrag);
+  chart.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 60 : 10;
+    if (e.key === 'ArrowRight') state.target = clamp(state.target + step, 0, DAY);
+    else if (e.key === 'ArrowLeft') state.target = clamp(state.target - step, 0, DAY);
+    else if (e.key === 'Home') state.target = 0; else if (e.key === 'End') state.target = DAY; else return;
+    hideHint(); state.touched = true; state.playing = false; syncPlay(); e.preventDefault();
+  });
+  const playBtn = $('play');
+  const syncPlay = () => { playBtn.textContent = state.playing ? 'Pause' : (state.target >= DAY - 1 ? 'Replay the day' : 'Play a day'); };
+  playBtn.addEventListener('click', () => { hideHint(); state.touched = true; if (!state.playing && state.target >= DAY - 1) { state.target = 0; state.t = 0; } state.playing = !state.playing; syncPlay(); });
+  const RATE = 1440 / 36;                                       // a full day in about 36 s
+
+  /* ---------- Scene ---------- */
+  const sky = $('sky'), scene = $('scene'), ctx = sky.getContext('2d');
+  const photo = new Image(); photo.src = '__PHOTO__';
+  let W = 0, H = 0, DPR = 1;
+  const resize = () => { DPR = Math.min(devicePixelRatio || 1, 2); W = scene.clientWidth; H = scene.clientHeight; sky.width = W * DPR; sky.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); };
+  new ResizeObserver(resize).observe(scene);
+
+  // Areas of the photo where Earth is visible (fractions of the image), used for the night lights.
+  const EARTH_AREAS = [
+    [[0.172,0.355],[0.640,0.372],[0.667,0.781],[0.129,0.680]],
+    [[0.750,0.40],[0.966,0.51],[0.943,0.78],[0.780,0.74]],
+    [[0.0,0.34],[0.07,0.32],[0.07,0.62],[0.0,0.64]],
+  ];
+  const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  const cities = []; const areaBox = EARTH_AREAS.map(a => ({ x0: Math.min(...a.map(p => p[0])), x1: Math.max(...a.map(p => p[0])), y0: Math.min(...a.map(p => p[1])), y1: Math.max(...a.map(p => p[1])) }));
+  for (let c = 0; c < 22; c++) {                                  // clusters
+    const ai = Math.floor(rnd() * 2.6) % 3, b = areaBox[ai];
+    const cx = lerp(b.x0, b.x1, rnd()), cy = lerp(b.y0, b.y1, rnd()), n = 14 + Math.floor(rnd() * 26), sp = 0.012 + rnd() * 0.02;
+    for (let k = 0; k < n; k++) cities.push({ x: cx + (rnd() - .5) * sp * 2, y: cy + (rnd() - .5) * sp * 1.4, r: .6 + rnd() * 1.2, a: .35 + rnd() * .6 });
+  }
+  const SUN = [0.583, 0.356];
+
+  // Mini ground-track map
+  const MW = 200, MH = 96, MPAD = 20;
+  const mapMask = document.createElement('canvas'); mapMask.width = MW; mapMask.height = MH;
+  const landDots = [];
+  const mx = (lon) => (lon + 180) / 360 * MW, my = (lat) => (62 - lat) / 124 * MH;
+  (() => { const m = mapMask.getContext('2d'); m.fillStyle = '#fff'; for (const [, poly] of LAND) { m.beginPath(); poly.forEach(([lo, la], i) => i ? m.lineTo(mx(lo), my(clamp(la, -62, 62))) : m.moveTo(mx(lo), my(clamp(la, -62, 62)))); m.closePath(); m.fill(); }
+    const d = m.getImageData(0, 0, MW, MH).data; for (let y = 2; y < MH; y += 4) for (let x = 2; x < MW; x += 4) if (d[(y * MW + x) * 4 + 3] > 120) landDots.push([x, y]); })();
+
+  const drawMap = (t, time) => {
+    const x0 = MPAD, y0 = H - MPAD - MH;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5,5,5,.78)'; ctx.strokeStyle = 'rgba(255,247,237,.22)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(x0, y0, MW, MH, 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(x0, y0, MW, MH, 2); ctx.clip();
+    ctx.fillStyle = 'rgba(171,171,171,.5)'; for (const [x, y] of landDots) ctx.fillRect(x0 + x - .75, y0 + y - .75, 1.5, 1.5);
+    // orbit track: 100 min behind and ahead
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,181,110,.55)'; ctx.setLineDash([2, 3]); ctx.beginPath();
+    let prev = null;
+    for (let d = -100; d <= 100; d += 1.5) { const [lo, la] = track(t + d); const px = x0 + mx(lo), py = y0 + my(clamp(la, -62, 62)); if (prev === null || Math.abs(px - prev) > MW / 2) ctx.moveTo(px, py); else ctx.lineTo(px, py); prev = px; }
+    ctx.stroke(); ctx.setLineDash([]);
+    const [lon, lat] = track(t), px = x0 + mx(lon), py = y0 + my(clamp(lat, -62, 62));
+    ctx.fillStyle = 'rgba(245,152,59,.25)'; ctx.beginPath(); ctx.arc(px, py, 6 + Math.sin(time * 3) * 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#F5983B'; ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    return [lon, lat];
+  };
+
+  const drawScene = (t, time) => {
+    if (!photo.complete || !photo.naturalWidth) { ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, W, H); return; }
+    const scale = Math.max(W / photo.naturalWidth, H / photo.naturalHeight), iw = photo.naturalWidth * scale, ih = photo.naturalHeight * scale, ox = (W - iw) / 2, oy = (H - ih) / 2;
+    ctx.drawImage(photo, ox, oy, iw, ih);
+    const at = (u, v) => [ox + u * iw, oy + v * ih];
+    const n = night(t), b = bloom(t);
+    // sunrise / sunset bloom
+    if (b > 0.02) {
+      const [sx, sy] = at(SUN[0], SUN[1]);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, iw * 0.34); g.addColorStop(0, `rgba(255,190,110,${0.5 * b})`); g.addColorStop(1, 'rgba(255,150,60,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.save(); ctx.translate(sx, sy + 2); ctx.scale(1, 0.09);
+      const st = ctx.createRadialGradient(0, 0, 0, 0, 0, iw * 0.22); st.addColorStop(0, `rgba(255,185,110,${0.45 * b})`); st.addColorStop(1, 'rgba(255,150,60,0)');
+      ctx.fillStyle = st; ctx.beginPath(); ctx.arc(0, 0, iw * 0.22, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      ctx.restore();
+    }
+    // night: darken the whole view, keep the city lights
+    if (n > 0.01) {
+      ctx.fillStyle = `rgba(2,5,14,${0.9 * n})`; ctx.fillRect(0, 0, W, H);
+      if (n > 0.3) {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const shift = (t * 0.0009) % 1;
+        EARTH_AREAS.forEach((poly, ai) => {
+          ctx.save(); ctx.beginPath(); poly.forEach(([u, v], i) => { const [x, y] = at(u, v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath(); ctx.clip();
+          for (const c of cities) {
+            const u = ((c.x + shift * 0.9) % 1.0), v = c.y + shift * 0.12;
+            const [x, y] = at(u, v);
+            ctx.fillStyle = `rgba(255,198,120,${c.a * n * 0.85})`; ctx.fillRect(x, y, c.r, c.r);
+          }
+          ctx.restore();
+        });
+        ctx.restore();
+        // thin airglow along the horizon at night
+        const [hx, hy] = at(0.45, 0.335);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(90,160,255,${0.35 * n})`; ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(90,160,255,.8)'; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.moveTo(at(0.18, 0.36)[0], at(0.18, 0.36)[1]); ctx.quadraticCurveTo(hx, at(0.45, 0.30)[1], at(0.64, 0.375)[0], at(0.64, 0.375)[1]); ctx.stroke(); ctx.restore();
+      }
+    }
+    return drawMap(t, time);
+  };
+
+  /* ---------- Readout ---------- */
+  const el = { clock: $('clock'), idx: $('idx'), title: $('stopTitle'), feel: $('feelText'), view: $('viewTag'), over: $('overTag'), nextLab: $('nextLab'), nextVal: $('nextVal'), nextBar: $('nextBar'), status: $('msgStatus'), flash: $('flash') };
+  const setStop = (i, instant) => {
+    state.stopIdx = i;
+    const apply = () => { const s = STOPS[Math.max(i, 0)]; el.title.textContent = s.title; el.feel.textContent = s.feel; el.idx.textContent = `Moment ${Math.max(i, 0) + 1} / ${STOPS.length}`; el.title.classList.remove('swap'); el.feel.classList.remove('swap'); };
+    if (instant || reduceMotion) apply(); else { el.title.classList.add('swap'); el.feel.classList.add('swap'); setTimeout(apply, 160); }
+    stopEls.forEach((s, k) => s.label.classList.toggle('on', k === i));
+  };
+  let lastRegion = 'the Pacific Ocean';
+  const status = (html) => { if (el.status.dataset.h !== html) { el.status.innerHTML = html; el.status.dataset.h = html; } };
+  $('photo').addEventListener('click', () => {
+    el.flash.classList.remove('go'); void el.flash.offsetWidth; el.flash.classList.add('go');
+    status(`<b>Photo saved.</b> Over ${lastRegion}, ${fmtClock(state.t)}.`);
+  });
+
+  /* ---------- Main loop ---------- */
+  let prev = performance.now(), rafId = null;
+  const schedule = () => { if (!document.hidden && rafId === null) rafId = requestAnimationFrame(frame); };
+  const frame = (now) => {
+    rafId = null;
+    const dt = Math.min((now - prev) / 1000, 0.05); prev = now;
+    if (state.playing) { state.target = Math.min(DAY, state.target + dt * RATE); if (state.target >= DAY) { state.playing = false; syncPlay(); } }
+    state.t = state.playing ? state.target : lerp(state.t, state.target, 1 - Math.exp(-dt * 14));
+    if (Math.abs(state.t - state.target) < 0.05) state.t = state.target;
+    const t = state.t;
+
+    const x = xOf(t), y = yOf(t);
+    $('doneRect').setAttribute('width', x);
+    $('hLine').setAttribute('x1', x); $('hLine').setAttribute('x2', x);
+    for (const id of ['hDot', 'hPulse']) { $(id).setAttribute('cx', x); $(id).setAttribute('cy', y); }
+    $('dragLabel').setAttribute('x', x); $('dragLabel').setAttribute('y', y - 18);
+    $('dragLabel').style.opacity = state.touched ? 0 : 1; $('hPulse').style.display = state.touched ? 'none' : '';
+    stopEls.forEach((s, k) => s.dot.setAttribute('fill', STOPS[k].t <= t + 0.05 ? '#F5983B' : '#090909'));
+    chart.setAttribute('aria-valuenow', (t / 60).toFixed(2)); chart.setAttribute('aria-valuetext', fmtClock(t));
+    let idx = 0; STOPS.forEach((s, k) => { if (s.t <= t + 0.05) idx = k; });
+    if (idx !== state.stopIdx) setStop(idx, state.stopIdx === -1);
+
+    el.clock.textContent = fmtClock(t);
+    el.view.textContent = `Cupola view · sunrise ${sunrisesSoFar(t)} / 16`;
+    const ne = nextEvent(t);
+    el.nextLab.textContent = ne.label; el.nextVal.textContent = Math.max(1, Math.round(ne.mins)); el.nextBar.style.width = `${clamp(ne.frac, 0, 1) * 100}%`;
+
+    if (W) { const ll = drawScene(t, now / 1000); if (ll) { lastRegion = regionAt(ll[0], ll[1]); el.over.textContent = `Over · ${lastRegion.replace(/^the /, '')}`; } }
+    schedule();
+  };
+
+  const m = /[#&]t=([\d.]+)/.exec(location.hash);       // minutes into the day, e.g. #t=420 opens at 07:00
+  if (m) { state.target = state.t = clamp(parseFloat(m[1]), 0, DAY); state.touched = /touched/.test(location.hash); }
+  if (SHOT) document.body.classList.add('shot');
+  syncPlay(); resize();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { prev = performance.now(); schedule(); } });
+  schedule();
+})();
+</script>
+</body>
+</html>

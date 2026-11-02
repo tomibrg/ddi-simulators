@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Viaje Interplanetario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#05060d;--glass:rgba(18,22,40,.55);--line:rgba(255,255,255,.09);--txt:#eef0fa;--dim:#8d93ab;--mars:#ff6a3d;--earth:#4da3ff;--ok:#3ee6b0;--warn:#ffb547}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:"Space Grotesk",system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+  #c{position:fixed;inset:0;width:100%;height:100%}
+  .glass{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:18px}
+
+  #hud{position:fixed;top:0;left:0;right:0;padding:max(16px,env(safe-area-inset-top)) 16px 0;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;pointer-events:none}
+  .kicker{font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
+  .dur{display:flex;align-items:baseline;gap:10px;margin-top:2px}
+  #dur{font-size:clamp(3rem,11vw,4.6rem);font-weight:700;line-height:1;background:linear-gradient(120deg,#ffd0a8,var(--mars));-webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+  .dur small{color:var(--dim);font-size:1rem}
+  #estado{display:inline-block;margin-top:8px;padding:5px 12px;border-radius:99px;font-size:.82rem;font-weight:500;border:1px solid}
+  #estado.ok{color:var(--ok);border-color:rgba(62,230,176,.35);background:rgba(62,230,176,.08)}
+  #estado.caro{color:var(--warn);border-color:rgba(255,181,71,.35);background:rgba(255,181,71,.08)}
+  #estado.vuelo{color:#ffd0a8;border-color:rgba(255,106,61,.4);background:rgba(255,106,61,.1)}
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;flex:1 1 320px;max-width:560px}
+  .stats div{padding:10px 12px}
+  .stats span{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .stats b{display:block;margin-top:4px;font-size:1rem;font-weight:500}
+
+  #panel{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));padding:14px 0 10px;max-width:900px;margin:0 auto}
+  .row{display:flex;align-items:center;gap:14px;padding:0 16px 12px}
+  #play{flex:none;width:56px;height:56px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;color:#fff;background:radial-gradient(circle at 30% 30%,#ff9a6b,var(--mars) 60%,#b8341a);box-shadow:0 0 24px rgba(255,106,61,.55),inset 0 1px 0 rgba(255,255,255,.4);transition:transform .15s}
+  #play:active{transform:scale(.92)}
+  #play:focus-visible,#strip:focus-visible{outline:2px solid var(--earth);outline-offset:3px}
+  #play svg{width:22px;height:22px;fill:currentColor}
+  .lbl{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  #fecha{font-size:1.25rem;font-weight:700}
+  #hoy{flex:none;padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--txt);font:500 .85rem "Space Grotesk",system-ui,sans-serif;cursor:pointer}
+  #hoy:hover{background:rgba(255,255,255,.12)}
+  #hoy:focus-visible{outline:2px solid var(--earth);outline-offset:3px}
+  .legend{margin-left:auto;font-size:.7rem;color:var(--dim);text-align:right;line-height:1.5}
+  .legend i{display:inline-block;width:56px;height:6px;border-radius:3px;vertical-align:middle;background:linear-gradient(90deg,hsl(160 85% 55%),hsl(85 85% 55%),hsl(20 85% 55%),hsl(0 70% 40%))}
+
+  #stripwrap{position:relative}
+  #strip{overflow-x:scroll;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x;cursor:grab;-webkit-mask-image:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent);mask-image:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent)}
+  #strip::-webkit-scrollbar{display:none}
+  #strip.drag{cursor:grabbing}
+  #track{padding:0 50%;width:max-content}
+  #inner{position:relative;height:62px}
+  #heat{position:absolute;left:0;right:0;top:4px;height:10px;border-radius:5px;background:rgba(255,255,255,.06)}
+  .tick{position:absolute;top:20px;height:42px;border-left:1px solid rgba(255,255,255,.18);padding:16px 0 0 5px;font-size:.7rem;color:var(--dim);white-space:nowrap;user-select:none}
+  .tick.year{border-left-color:rgba(255,255,255,.55);color:var(--txt);font-weight:700;font-size:.8rem;padding-top:14px}
+  #needle{position:absolute;left:50%;top:-4px;bottom:-2px;width:2px;margin-left:-1px;background:#fff;border-radius:1px;box-shadow:0 0 10px #fff,0 0 22px var(--mars);pointer-events:none}
+  #needle::before{content:"";position:absolute;top:-6px;left:-5px;border:6px solid transparent;border-top-color:#fff}
+
+  @media (max-width:560px){.legend{display:none}.stats b{font-size:.88rem}}
+  @media (prefers-reduced-motion:reduce){#play{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Órbitas de los planetas con la trayectoria del vuelo"></canvas>
+
+<header id="hud">
+  <div>
+    <div class="kicker" id="kicker"></div>
+    <div class="dur"><span id="dur">—</span><small><span id="unidad">días</span> de viaje<br><span id="meses"></span></small></div>
+    <div id="estado" aria-live="polite"></div>
+  </div>
+  <div class="stats">
+    <div class="glass"><span>Llegada</span><b id="lleg"></b></div>
+    <div class="glass"><span>Distancia al partir</span><b id="dist"></b></div>
+    <div class="glass"><span>Δv necesario</span><b id="dv"></b></div>
+  </div>
+</header>
+
+<div id="panel" class="glass">
+  <div class="row">
+    <button id="play" aria-label="Simular vuelo"></button>
+    <div><div class="lbl">Fecha de partida</div><div id="fecha"></div></div>
+    <button id="hoy" aria-label="Volver a la fecha de hoy">↺ Hoy</button>
+    <div class="legend">costo del viaje<br><i></i> barato → caro</div>
+  </div>
+  <div id="stripwrap">
+    <div id="strip" tabindex="0" aria-label="Deslizá para elegir la fecha de partida"><div id="track"><div id="inner"><div id="heat"></div></div></div></div>
+    <div id="needle"></div>
+  </div>
+</div>
+
+<script>
+const MU = 2.959122082855911e-4;              // GM del Sol en UA³/día²
+const J2000 = Date.UTC(2000, 0, 1, 12), DAY = 864e5;
+const AU_KM = 149597870.7, AUD_KMS = AU_KM / 86400;
+const rad = Math.PI / 180;
+// Elementos medios J2000 (JPL); se ignoran las inclinaciones (todas < 7.1°)
+const PLANETAS = [
+  {n: 'Mercurio', a: 0.38709927, e: 0.20563593, L0: 252.25032350, Ldot: 149472.67411175, w: 77.45779628,  r: 4,  c: ['#e0d9d0', '#6b625a']},
+  {n: 'Venus',    a: 0.72333566, e: 0.00677672, L0: 181.97909950, Ldot: 58517.81538729,  w: 131.60246718, r: 6,  c: ['#ffe7b3', '#b5893a']},
+  {n: 'Tierra',   a: 1.00000261, e: 0.01671123, L0: 100.46457166, Ldot: 35999.37244981,  w: 102.93768193, r: 7,  c: ['#9fd0ff', '#1f5fb8']},
+  {n: 'Marte',    a: 1.52371034, e: 0.09339410, L0: -4.55343205,  Ldot: 19140.30268499,  w: -23.94362959, r: 6,  c: ['#ffad8a', '#a3341a']},
+  {n: 'Júpiter',  a: 5.20288700, e: 0.04838624, L0: 34.39644051,  Ldot: 3034.74612775,   w: 14.72847983,  r: 11, c: ['#f6dcb8', '#a8754a']},
+  {n: 'Saturno',  a: 9.53667594, e: 0.05386179, L0: 49.95424423,  Ldot: 1222.49362201,   w: 92.59887831,  r: 10, c: ['#f7e6b0', '#a88d4a']},
+  {n: 'Urano',    a: 19.18916464, e: 0.04725744, L0: 313.23810451, Ldot: 428.48202785,   w: 170.95427630, r: 8,  c: ['#c4f4f4', '#3d9a9e']},
+  {n: 'Neptuno',  a: 30.06992276, e: 0.00859048, L0: -55.12002969, Ldot: 218.45945325,   w: 44.96476227,  r: 8,  c: ['#9fbcff', '#2a49b8']},
+];
+const TIERRA = PLANETAS[2];
+for (const p of PLANETAS) p.T = 36525 * 360 / p.Ldot; // período en días
+
+function pos(p, t) { // t en días desde J2000 → [x, y] en UA
+  const M = ((p.L0 + p.Ldot * t / 36525 - p.w) * rad) % (2 * Math.PI);
+  let E = M;
+  for (let i = 0; i < 30; i++) E -= (E - p.e * Math.sin(E) - M) / (1 - p.e * Math.cos(E));
+  const x = p.a * (Math.cos(E) - p.e), y = p.a * Math.sqrt(1 - p.e * p.e) * Math.sin(E), w = p.w * rad;
+  return [x * Math.cos(w) - y * Math.sin(w), x * Math.sin(w) + y * Math.cos(w)];
+}
+const vel = (p, t) => { const a = pos(p, t + .01), b = pos(p, t - .01); return [(a[0] - b[0]) / .02, (a[1] - b[1]) / .02]; };
+
+// Transferencia de Hohmann entre órbitas circulares: referencia de duración y de costo
+function hohmann(p) {
+  const at = (1 + p.a) / 2, v = r => Math.sqrt(MU / r), vt = r => Math.sqrt(MU * (2 / r - 1 / at));
+  return {tof: Math.PI * Math.sqrt(at ** 3 / MU), dv: Math.abs(vt(1) - v(1)) + Math.abs(v(p.a) - vt(p.a))};
+}
+
+// Funciones de Stumpff
+const C = z => z > 1e-8 ? (1 - Math.cos(Math.sqrt(z))) / z : z < -1e-8 ? (Math.cosh(Math.sqrt(-z)) - 1) / -z : 1 / 2;
+const S = z => z > 1e-8 ? (Math.sqrt(z) - Math.sin(Math.sqrt(z))) / z ** 1.5
+             : z < -1e-8 ? (Math.sinh(Math.sqrt(-z)) - Math.sqrt(-z)) / (-z) ** 1.5 : 1 / 6;
+
+// Lambert (variables universales, Curtis), una sola vuelta, sentido prógrado
+function lambert(r1v, r2v, tof) {
+  const r1 = Math.hypot(...r1v), r2 = Math.hypot(...r2v);
+  let th = Math.acos(Math.max(-1, Math.min(1, (r1v[0] * r2v[0] + r1v[1] * r2v[1]) / (r1 * r2))));
+  if (r1v[0] * r2v[1] - r1v[1] * r2v[0] < 0) th = 2 * Math.PI - th;
+  const A = Math.sin(th) * Math.sqrt(r1 * r2 / (1 - Math.cos(th)));
+  const y = z => r1 + r2 + A * (z * S(z) - 1) / Math.sqrt(C(z));
+  let lo = -100, hi = 4 * Math.PI ** 2, z;
+  for (let i = 0; i < 100; i++) { // bisección: el tiempo de vuelo crece con z
+    z = (lo + hi) / 2;
+    const yz = y(z), t = yz < 0 ? -1 : ((yz / C(z)) ** 1.5 * S(z) + A * Math.sqrt(yz)) / Math.sqrt(MU);
+    if (t < tof) lo = z; else hi = z;
+  }
+  const yz = y(z), f = 1 - yz / r1, g = A * Math.sqrt(yz / MU), gd = 1 - yz / r2;
+  return [[(r2v[0] - f * r1v[0]) / g, (r2v[1] - f * r1v[1]) / g],
+          [(gd * r2v[0] - r1v[0]) / g, (gd * r2v[1] - r1v[1]) / g]];
+}
+
+// Prueba duraciones entre 0.4 y 1.75 veces la de Hohmann y se queda con la de menor Δv
+function mejorViaje(t0, dest) {
+  const r1 = pos(TIERRA, t0), vE = vel(TIERRA, t0), H = hohmann(dest).tof;
+  let best = {dv: Infinity};
+  for (let i = 0; i <= 180; i++) {
+    const tof = H * (0.4 + 1.35 * i / 180);
+    const r2 = pos(dest, t0 + tof), vD = vel(dest, t0 + tof), [v1, v2] = lambert(r1, r2, tof);
+    const dv = Math.hypot(v1[0] - vE[0], v1[1] - vE[1]) + Math.hypot(v2[0] - vD[0], v2[1] - vD[1]);
+    if (dv < best.dv) best = {tof, dv, r1, r2, v1};
+  }
+  return best;
+}
+
+function propagar([x, y], [vx, vy], tof, n = Math.max(400, Math.ceil(tof))) { // leapfrog, 2 cuerpos, paso ≤ 1 día
+  const h = tof / n, pts = [[x, y]];
+  for (let i = 0; i < n; i++) {
+    let a = -MU / Math.hypot(x, y) ** 3; vx += a * x * h / 2; vy += a * y * h / 2;
+    x += vx * h; y += vy * h;
+    a = -MU / Math.hypot(x, y) ** 3; vx += a * x * h / 2; vy += a * y * h / 2;
+    pts.push([x, y]);
+  }
+  return pts;
+}
+
+// ISS: órbitas circulares alrededor de la Tierra. Despegue (10 min) a una órbita de espera de 200 km,
+// se dan vueltas hasta que la fase con la ISS es la justa y una transferencia de Hohmann sube a 420 km.
+// shortcut: la fase de la ISS sale de su período medio, no de efemérides reales (la ISS hace reboosts); sirve como modelo, no para un lanzamiento real
+const MU_T = 398600.4418, RT = 6371, H_PARK = 200, H_ISS = 420, ASC = 600; // km³/s², km, km, km, s
+const ISS = {n: 'ISS', art: 'la ISS', iss: true, r: 5, c: ['#e6ecf5', '#7d8aa0']};
+function viajeISS(t0) { // t0 en días desde J2000; despegue a las 0 h UTC
+  const r1 = RT + H_PARK, r2 = RT + H_ISS, n1 = Math.sqrt(MU_T / r1 ** 3), n2 = Math.sqrt(MU_T / r2 ** 3);
+  const at = (r1 + r2) / 2, e = (r2 - r1) / (r2 + r1), th = Math.PI * Math.sqrt(at ** 3 / MU_T), TAU = 2 * Math.PI;
+  const fase = s => (n2 * (t0 * 86400 + s)) % TAU;                    // ángulo de la ISS, s segundos después del despegue
+  const phi0 = (fase(ASC) + TAU) % TAU;                               // la nave entra en órbita en el ángulo 0
+  const wait = (((phi0 - (Math.PI - n2 * th)) % TAU) + TAU) % TAU / (n1 - n2); // la nave de abajo es más rápida y la alcanza
+  const tof = ASC + wait + th;
+  const vc = r => Math.sqrt(MU_T / r), vt = r => Math.sqrt(MU_T * (2 / r - 1 / at));
+  const dv = 9.4 + vt(r1) - vc(r1) + vc(r2) - vt(r2);                 // ~9,4 km/s para llegar a órbita (con pérdidas) + Hohmann
+  const muestra = s => {                                              // posición [r, θ] de la nave
+    if (s < ASC) { const u = s / ASC; return [RT + H_PARK * Math.sin(u * Math.PI / 2), -0.25 * (1 - u)]; }
+    if (s < ASC + wait) return [r1, n1 * (s - ASC)];
+    const M = Math.PI * Math.min(1, (s - ASC - wait) / th);
+    let E = M;
+    for (let i = 0; i < 20; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    return [at * (1 - e * Math.cos(E)), n1 * wait + 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2))];
+  };
+  return {tof: tof / 86400, dv: dv / AUD_KMS, fase, wait, syn: TAU / (n1 - n2), vueltas: n1 * wait / TAU,
+          dist: Math.sqrt(r1 ** 2 + r2 ** 2 - 2 * r1 * r2 * Math.cos(phi0)), pts: Array.from({length: 3001}, (_, i) => muestra(tof * i / 3000))};
+}
+
+// --- UI ---
+const $ = id => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d'), strip = $('strip'), inner = $('inner'), heat = $('heat'), btn = $('play');
+const BASE = Date.UTC(2026, 0, 1), DAYS = 3652, PX = 3, STEP = 4, FLIGHT_MS = 7000;
+const ICON_PLAY = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>';
+const fmt = ms => new Date(ms).toLocaleDateString('es-AR', {day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'});
+const num = (x, d = 1) => x.toLocaleString('es-AR', {maximumFractionDigits: d});
+const tDay = d => (BASE + d * DAY - J2000) / DAY;
+const cache = new Map();
+const fmtHora = ms => new Date(ms).toLocaleString('es-AR', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC'}) + ' UTC';
+const viaje = d => { if (!cache.has(d)) cache.set(d, dest.iss ? viajeISS(tDay(d)) : mejorViaje(tDay(d), dest)); return cache.get(d); };
+const costo = b => dest.iss ? 1 + b.wait / b.syn : b.dv / ref.dv; // 1 = lo mejor posible
+const stars = Array.from({length: 280}, () => [Math.random(), Math.random(), Math.random() * 1.3 + .3, Math.random() * .7 + .15]);
+let dest = PLANETAS[3], ref = hohmann(dest), day = -1, cur, path, anim = null, W, H, view;
+
+function resize() {
+  const dpr = devicePixelRatio || 1;
+  W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const top = $('hud').getBoundingClientRect().bottom, bot = $('panel').getBoundingClientRect().top;
+  view = {x: W / 2, y: (top + bot) / 2, R: Math.max(60, Math.min(W / 2, (bot - top) / 2) - 14)};
+  draw(anim ? anim.f : null);
+}
+
+let P; // de coordenadas de la escena a píxeles; la define draw() según el destino
+const line = (pts, color, w) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); pts.forEach(q => ctx.lineTo(...P(q))); ctx.stroke(); };
+const glowAt = (x, y, r, color) => {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+};
+const glow = (q, r, color) => glowAt(...P(q), r, color);
+const estacion = ([x, y]) => {
+  glowAt(x, y, 16, 'rgba(230,236,245,.45)');
+  ctx.fillStyle = '#5c8fd6'; ctx.fillRect(x - 12, y - 2.5, 8, 5); ctx.fillRect(x + 4, y - 2.5, 8, 5);
+  ctx.fillStyle = '#e6ecf5'; ctx.fillRect(x - 4, y - 1, 8, 2); ctx.fillRect(x - 2, y - 3.5, 4, 7);
+  ctx.fillStyle = '#e3e6f3'; ctx.font = '500 12px "Space Grotesk", sans-serif'; ctx.fillText('ISS', x + 15, y + 4);
+};
+
+function draw(f = null) {
+  if (!cur) return;
+  const t0 = tDay(day), t = t0 + (f ?? 0) * cur.tof;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fff';
+  for (const [x, y, r, a] of stars) { ctx.globalAlpha = a; ctx.fillRect(x * W, y * H, r, r); }
+  ctx.globalAlpha = 1;
+
+  if (dest.iss) return drawISS(f);
+  // escala lineal hasta Marte; para planetas exteriores, radio comprimido (√r) para que se vea la Tierra
+  const p = dest.a > 2 ? .5 : 1, k = view.R / (Math.max(1.02, dest.a * (1 + dest.e)) * 1.04) ** p;
+  P = ([x, y]) => { const r = Math.hypot(x, y), s = r ? k * r ** (p - 1) : 0; return [view.x + x * s, view.y - y * s]; };
+  const planeta = pl => {
+    const q = pos(pl, t), [x, y] = P(q), r = pl.r, activo = pl === TIERRA || pl === dest;
+    glow(q, r * 3, pl.c[0] + (activo ? '66' : '33'));
+    const g = ctx.createRadialGradient(x - r / 3, y - r / 3, 0, x, y, r);
+    g.addColorStop(0, pl.c[0]); g.addColorStop(1, pl.c[1]);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    if (pl.n === 'Saturno') { ctx.strokeStyle = 'rgba(247,230,176,.75)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, r * 1.9, r * .55, -.4, 0, 7); ctx.stroke(); }
+    ctx.fillStyle = activo ? '#e3e6f3' : 'rgba(200,205,224,.5)';
+    ctx.font = `${activo ? 500 : 400} 12px "Space Grotesk", sans-serif`;
+    ctx.fillText(pl.n, x + r + 6, y + 4);
+  };
+
+  for (const pl of PLANETAS) {
+    const color = pl === TIERRA ? 'rgba(77,163,255,.3)' : pl === dest ? pl.c[0] + '70' : 'rgba(255,255,255,.08)';
+    line(Array.from({length: 181}, (_, i) => pos(pl, t0 + i * pl.T / 180)), color, 1);
+  }
+
+  trayectoria(f);
+  glow([0, 0], 70, 'rgba(255,190,80,.35)');
+  glow([0, 0], 18, '#fff3c4');
+  PLANETAS.forEach(planeta);
+  nave(f);
+}
+
+function drawISS(f) {
+  const vis = r => RT + (r - RT) * 8, k = view.R / vis(RT + H_ISS) * .95, re = RT * k; // alturas ×8 para que se vean
+  P = ([r, th]) => [view.x + vis(r) * k * Math.cos(th), view.y - vis(r) * k * Math.sin(th)];
+  glowAt(view.x, view.y, re * 1.25, 'rgba(77,163,255,.35)');
+  const g = ctx.createRadialGradient(view.x - re / 3, view.y - re / 3, 0, view.x, view.y, re);
+  g.addColorStop(0, '#6fb7ff'); g.addColorStop(.7, '#1f5fb8'); g.addColorStop(1, '#0b2a5c');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(view.x, view.y, re, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(230,236,245,.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(view.x, view.y, vis(RT + H_ISS) * k, 0, 7); ctx.stroke();
+  ctx.fillStyle = 'rgba(220,228,245,.7)'; ctx.font = '400 11px "Space Grotesk", sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Tierra · alturas exageradas ×8', view.x, view.y + 4); ctx.textAlign = 'start';
+  trayectoria(f);
+  estacion(P([RT + H_ISS, cur.fase((f ?? 0) * cur.tof * 86400)]));
+  nave(f);
+}
+
+// trayectoria: punteada lo que falta, sólida lo recorrido, y el punto de encuentro con el destino
+const recorrido = f => f === null ? path.length : Math.max(2, Math.round(f * (path.length - 1)) + 1);
+function trayectoria(f) {
+  ctx.setLineDash([3, 6]); line(path, 'rgba(255,190,130,.4)', 1.5); ctx.setLineDash([]);
+  ctx.shadowColor = '#ff8a50'; ctx.shadowBlur = 12; line(path.slice(0, recorrido(f)), '#ffb27a', 2.5); ctx.shadowBlur = 0;
+  const [tx, ty] = P(path.at(-1));
+  ctx.strokeStyle = 'rgba(255,106,61,.7)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(tx, ty, dest.r + 5, 0, 7); ctx.stroke();
+}
+
+function nave(f) {
+  const n = recorrido(f);
+  if (f !== null && f < 1) { // nave orientada según su velocidad
+    const a = path[n - 2], b = path[n - 1], [x, y] = P(b), [px, py] = P(a), ang = Math.atan2(y - py, x - px);
+    glow(b, 16, 'rgba(255,220,180,.6)');
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(-5, -4); ctx.lineTo(-3, 0); ctx.lineTo(-5, 4); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function setEstado() {
+  const ok = costo(cur) < 1.4, e = $('estado');
+  e.className = ok ? 'ok' : 'caro';
+  e.textContent = dest.iss ? (ok ? '● Encuentro rápido con la ISS' : '● Larga espera en órbita hasta alcanzar la ISS')
+                           : (ok ? '● Ventana de lanzamiento favorable' : '● Fuera de ventana: viaje muy caro');
+}
+
+function update() {
+  cur = viaje(day);
+  const ms = BASE + day * DAY;
+  if (dest.iss) {
+    path = cur.pts;
+    $('fecha').textContent = fmt(ms) + ', 0 h UTC';
+    $('unidad').textContent = 'horas';
+    $('dur').textContent = num(cur.tof * 24);
+    $('meses').textContent = `≈ ${num(cur.vueltas, 0)} vueltas a la Tierra esperando`;
+    $('lleg').textContent = fmtHora(ms + cur.tof * DAY);
+    $('dist').textContent = `${num(cur.dist, 0)} km`;
+  } else {
+    path = propagar(cur.r1, cur.v1, cur.tof);
+    const mD = pos(dest, tDay(day)), meses = cur.tof / 30.44;
+    $('fecha').textContent = fmt(ms);
+    $('unidad').textContent = 'días';
+    $('dur').textContent = num(Math.round(cur.tof), 0);
+    $('meses').textContent = meses < 24 ? `≈ ${num(meses)} meses` : `≈ ${num(meses, 0)} meses · ${num(cur.tof / 365.25)} años`;
+    $('lleg').textContent = fmt(ms + cur.tof * DAY);
+    $('dist').textContent = `${num(Math.hypot(cur.r1[0] - mD[0], cur.r1[1] - mD[1]) * AU_KM / 1e6, 0)} M km`;
+  }
+  $('dv').textContent = `${(cur.dv * AUD_KMS).toFixed(1)} km/s`;
+  setEstado();
+  draw();
+}
+
+function stop() {
+  if (anim) cancelAnimationFrame(anim.id);
+  anim = null; btn.innerHTML = ICON_PLAY; btn.setAttribute('aria-label', 'Simular vuelo');
+}
+
+btn.onclick = () => {
+  if (anim) { stop(); setEstado(); draw(); return; }
+  const start = performance.now(), e = $('estado');
+  const tick = now => {
+    anim.f = Math.min(1, (now - start) / FLIGHT_MS);
+    draw(anim.f);
+    e.className = 'vuelo';
+    const progreso = dest.iss ? `${num(anim.f * cur.tof * 24)} h de ${num(cur.tof * 24)} h`
+                              : `día ${num(Math.round(anim.f * cur.tof), 0)} de ${num(Math.round(cur.tof), 0)}`;
+    e.textContent = anim.f < 1 ? `🚀 En vuelo · ${progreso}` : `🏁 ¡Llegaste a ${dest.art ?? dest.n}!`;
+    if (anim.f < 1) anim.id = requestAnimationFrame(tick);
+    else { stop(); draw(1); }
+  };
+  anim = {f: 0, id: requestAnimationFrame(tick)};
+  btn.innerHTML = ICON_PAUSE; btn.setAttribute('aria-label', 'Detener simulación');
+};
+
+strip.onscroll = () => {
+  const d = Math.max(0, Math.min(DAYS, Math.round(strip.scrollLeft / PX)));
+  if (d !== day) { day = d; stop(); update(); }
+};
+// con mouse: arrastrar y rueda vertical también mueven la tira (en touch ya lo hace el scroll nativo)
+let drag = null;
+strip.onpointerdown = e => { if (e.pointerType === 'mouse') { drag = {x: e.clientX, s: strip.scrollLeft}; strip.classList.add('drag'); strip.setPointerCapture(e.pointerId); } };
+strip.onpointermove = e => { if (drag) strip.scrollLeft = drag.s - (e.clientX - drag.x); };
+strip.onpointerup = strip.onpointercancel = () => { drag = null; strip.classList.remove('drag'); };
+strip.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { strip.scrollLeft += e.deltaY; e.preventDefault(); } }, {passive: false});
+
+// marcas de meses y años
+inner.style.width = DAYS * PX + 'px';
+for (let m = 0; ; m++) {
+  const ms = Date.UTC(2026, m, 1), d = (ms - BASE) / DAY;
+  if (d > DAYS) break;
+  const el = document.createElement('div');
+  el.className = m % 12 ? 'tick' : 'tick year';
+  el.style.left = d * PX + 'px';
+  el.textContent = m % 12 ? new Date(ms).toLocaleDateString('es-AR', {month: 'short', timeZone: 'UTC'}).replace('.', '') : 2026 + m / 12;
+  inner.append(el);
+}
+
+// barra de costo (Δv relativo a Hohmann): se calcula de a poco para no trabar la página
+const hue = q => Math.max(0, Math.min(160, 160 - (q - 1) * 160));
+let costs = [], gen = 0;
+function precalcular(i = 0, g = gen) {
+  if (g !== gen) return; // cambió el destino: se abandona este cálculo
+  const last = Math.floor(DAYS / STEP), end = Math.min(i + 25, last + 1);
+  for (; i < end; i++) costs[i] = costo(viaje(i * STEP));
+  const stops = costs.map((q, j) => `hsl(${hue(q)} 85% ${q > 1.8 ? 38 : 55}%) ${j * STEP * PX}px`);
+  heat.style.background = `linear-gradient(90deg, ${stops.join(',')}, rgba(255,255,255,.06) ${(costs.length - 1) * STEP * PX + 1}px)`;
+  if (i <= last) setTimeout(() => precalcular(i, g));
+}
+
+function elegir(pl) {
+  dest = pl; ref = pl.iss ? null : hohmann(pl); cache.clear(); costs = []; gen++;
+  heat.style.background = '';
+  $('kicker').textContent = `Misión Tierra → ${pl.n}`;
+  stop();
+  if (day >= 0) update();
+  precalcular();
+}
+// Destino fijo: Marte. Ya no hay selector de destinos (ni chips); `dest` queda en Marte y `elegir()` solo lo inicializa.
+
+addEventListener('resize', resize);
+btn.innerHTML = ICON_PLAY;
+elegir(dest);
+resize();
+const HOY = Math.max(0, Math.min(DAYS, Math.floor((Date.now() - BASE) / DAY)));
+strip.scrollLeft = HOY * PX;
+$('hoy').onclick = () => strip.scrollTo({left: HOY * PX, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+strip.onscroll();
+resize(); // el HUD cambia de alto al llenarse
+document.fonts.ready.then(resize);
+
+// autocomprobación: para cada destino, la trayectoria de Lambert propagada tiene que llegar al planeta
+for (const pl of PLANETAS) {
+  if (pl === TIERRA) continue;
+  const b = mejorViaje(0, pl), e = propagar(b.r1, b.v1, b.tof, Math.max(4000, Math.ceil(b.tof * 2))).at(-1);
+  console.assert(Math.hypot(e[0] - b.r2[0], e[1] - b.r2[1]) < 2e-3 * pl.a, `Lambert no llega a ${pl.n}`);
+}
+// y la nave tiene que terminar a la altura de la ISS, en el mismo ángulo que la ISS
+for (const t0 of [0, 9800.3, 12000]) {
+  const b = viajeISS(t0), [r, th] = b.pts.at(-1), d = ((th - b.fase(b.tof * 86400)) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+  console.assert(Math.abs(r - RT - H_ISS) < 1e-6 && Math.abs(d) < 1e-6, 'la nave no llega a la ISS');
+}
+</script>
+</body>
+</html>
