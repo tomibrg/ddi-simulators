@@ -51,10 +51,7 @@
   .floor::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 24px; background: linear-gradient(to bottom, rgba(245,152,59,.07), transparent); }
   .obj { position: absolute; left: 0; top: 0; cursor: grab; will-change: transform; touch-action: none; }
   .obj.grabbed { cursor: grabbing; }
-  .obj i { display: block; width: 100%; height: 100%; background: var(--orbit-color-text-primary); border-radius: var(--orbit-radius-2); box-shadow: 0 0 0 1px rgba(5,5,5,.6) inset; }
-  .obj.ball i { border-radius: 50%; background: var(--orbit-color-accent); }
-  .obj.pen i { background: var(--orbit-color-accent-soft); }
-  .obj.card i { background: var(--orbit-color-text-secondary); }
+  .obj svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 3px 5px rgba(0,0,0,.55)); }
   .scene-top { position: absolute; left: 20px; right: 20px; top: 16px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
   .scene-top .btn { pointer-events: auto; }
   .hint { position: absolute; left: 0; right: 0; top: 64px; text-align: center; pointer-events: none; opacity: 0; transition: opacity .6s; }
@@ -419,17 +416,30 @@
 
   /* ---------- Floating objects ---------- */
   const objsEl = $('objs');
+  // Everyday things that float loose in the cabin. Each svg is drawn in a w × h box.
   const DEFS = [
-    { cls: 'ball', w: 34, h: 34 },
-    { cls: 'pen',  w: 78, h: 9 },
-    { cls: 'card', w: 54, h: 34 },
-    { cls: '',     w: 30, h: 30 },
-    { cls: 'pen',  w: 56, h: 9 },
+    { name: 'mug', w: 44, h: 40, svg: `<path d="M33 12h3a7 7 0 0 1 0 14h-3" fill="none" stroke="#E9DFD2" stroke-width="4"/>
+      <path d="M3 6h31v25a7 7 0 0 1-7 7H10a7 7 0 0 1-7-7z" fill="#FFF7ED"/><path d="M3 15h31v6H3z" fill="#F5983B"/>
+      <ellipse cx="18.5" cy="6" rx="15.5" ry="3" fill="#E9DFD2"/><ellipse cx="18.5" cy="6" rx="12.5" ry="2" fill="#4A2C17"/>
+      <circle cx="12" cy="1.5" r="1.6" fill="#4A2C17"/><circle cx="24" cy="0" r="1.1" fill="#4A2C17"/>` },
+    { name: 'pen', w: 84, h: 10, svg: `<path d="M0 5l9-3.5h3v7H9z" fill="#2B2B2B"/><rect x="12" y="1" width="54" height="8" rx="1.5" fill="#FFB56E"/>
+      <rect x="12" y="1" width="54" height="2.5" rx="1" fill="#FFD3A3"/><rect x="62" y="0" width="22" height="10" rx="2" fill="#F5983B"/>
+      <rect x="66" y="-2" width="16" height="2.5" rx="1" fill="#C9C1B6"/>` },
+    { name: 'phone', w: 34, h: 64, svg: `<rect x="0" y="0" width="34" height="64" rx="5" fill="#1C1C1E"/><rect x="2.5" y="4" width="29" height="56" rx="3" fill="#0D1B2A"/>
+      <rect x="2.5" y="4" width="29" height="56" rx="3" fill="url(#phoneGlow)"/><rect x="12" y="6" width="10" height="2.5" rx="1.2" fill="#000"/>
+      <rect x="6" y="40" width="22" height="2" rx="1" fill="#FFF7ED" opacity=".5"/><rect x="9" y="45" width="16" height="2" rx="1" fill="#FFF7ED" opacity=".3"/>
+      <defs><linearGradient id="phoneGlow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5983B" stop-opacity=".55"/><stop offset="1" stop-color="#2A4D7A" stop-opacity=".4"/></linearGradient></defs>` },
+    { name: 'apple', w: 32, h: 34, svg: `<path d="M16 9c-4-3-14-2-14 9 0 9 6 16 10 16 2 0 3-1 4-1s2 1 4 1c4 0 10-7 10-16 0-11-10-12-14-9z" fill="#C2412B"/>
+      <path d="M8 13c-2 2-3 5-2.5 8" stroke="#E87A5F" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M16 9c0-3 1-6 3-8" stroke="#5B3A1E" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M18 5c3-4 8-4 10-2-2 3-7 4-10 2z" fill="#7A9A4A"/>` },
+    { name: 'sunglasses', w: 62, h: 22, svg: `<path d="M1 4h60" stroke="#8A7F74" stroke-width="3" stroke-linecap="round"/>
+      <path d="M4 4h22c0 9-3 15-11 15S4 13 4 4z" fill="#141414" stroke="#8A7F74" stroke-width="2"/><path d="M36 4h22c0 9-3 15-11 15S36 13 36 4z" fill="#141414" stroke="#8A7F74" stroke-width="2"/>
+      <path d="M8 7l6 0M40 7l6 0" stroke="#F5983B" stroke-width="2" stroke-linecap="round" opacity=".7"/><path d="M26 6c2-2 8-2 10 0" stroke="#8A7F74" stroke-width="2.5" fill="none"/>` },
   ];
   const objs = DEFS.map((d, i) => {
     const el = document.createElement('div');
-    el.className = `obj ${d.cls}`; el.style.width = d.w + 'px'; el.style.height = d.h + 'px'; el.setAttribute('aria-hidden', 'true');
-    el.innerHTML = '<i></i>'; objsEl.appendChild(el);
+    el.className = `obj ${d.name}`; el.style.width = d.w + 'px'; el.style.height = d.h + 'px'; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<svg viewBox="0 0 ${d.w} ${d.h}" xmlns="http://www.w3.org/2000/svg">${d.svg}</svg>`; objsEl.appendChild(el);
     return { el, w: d.w, h: d.h, x: 0, y: 0, vx: 0, vy: 0, r: 0, vr: 0, grabbed: false, i };
   });
   let placed = false;

@@ -14,7 +14,7 @@ Open `index.html` in a browser (double click, or `open index.html`). Works from 
 - Drag the line (or click a stop, or use ← → / Home / End) to move through the 10-minute flight. `Play flight` runs it in ~25 s.
 - Readout changes live: stop name, "You feel" sentence, G-force, altitude, speed, and what *you* would weigh (± stepper for your weight).
 - The window scene follows the flight: sky from dawn to black, stars, the curve of the Earth with its thin blue line, engine glow and shake under thrust, reentry glow, sway under parachutes.
-- In the weightless band the cabin objects float. Grab and throw them. Weight comes back and they fall to the floor.
+- In the weightless band the cabin objects (a mug, a pen, a phone, an apple, sunglasses) float. Grab and throw them. Weight comes back and they fall to the floor.
 - `Sound` (off by default): engine roar, silence at weightlessness, reentry rush, parachute air. Synthesized with WebAudio, no files.
 
 ## Demo flow
