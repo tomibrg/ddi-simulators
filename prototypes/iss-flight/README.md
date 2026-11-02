@@ -22,6 +22,19 @@ Open `index.html` in a browser (works from `file://`). It is a generated single 
 
 Deep links: `index.html#t=420` opens at minute 420 (07:00); add `&touched` to hide the drag hint. `#t=880&shot` renders only the scene (used to export the still in `assets/iss-flight/`).
 
+## Orbit video
+
+`assets/iss/cupola-orbit.mp4` is 11 s cut from NASA Johnson's "Earth Illuminated: ISS Time-lapse Photography" (public domain, [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Earth_Illuminated-_ISS_Time-lapse_Photography.webm), 2:19–2:31): lit Earth → dusk → night → sunrise. The last second crossfades into the first, so it loops without a cut. Credited on screen as "Time-lapse: NASA"; it must not suggest NASA endorsement.
+
+
+If the video is present, the scene shows it instead of the photo with light overlays. The clip should be **one orbit** (day → sunset → night → sunrise) and is treated as a loop:
+
+- Idle: the video plays on repeat by itself and drives the clock, so the line on the chart moves with it.
+- Dragging the line, clicking a moment or `Play a day`: the video pauses and follows the slider (each ~93 min of the day = one pass through the clip).
+- `VIDEO_SUNRISE` in `template.html` is the fraction of the clip where the sunrise happens (0 = start), to line it up with the daylight chart.
+
+Encode it with a keyframe on every frame so scrubbing is smooth (`ffmpeg -i in.mp4 -vf scale=1280:-2 -g 1 -an -pix_fmt yuv420p assets/iss/cupola-orbit.mp4`). Seeking needs `file://` or a server with Range requests (Netlify works; `python -m http.server` does not).
+
 ## Regenerating `index.html`
 
 `template.html` is the source. It has the placeholder `__PHOTO__` where the image goes:

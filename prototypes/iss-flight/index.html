@@ -35,7 +35,9 @@
     position: relative; min-height: 460px; overflow: hidden; background: var(--orbit-color-ink);
     border: 1px solid var(--orbit-color-line); border-radius: var(--orbit-radius-2); user-select: none;
   }
-  .scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  .scene canvas, .scene video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  .scene video { object-fit: cover; visibility: hidden; }
+  .scene.has-video video { visibility: visible; }
   .scene-top { position: absolute; z-index: 2; left: 20px; right: 20px; top: 22px; display: flex; justify-content: space-between; pointer-events: none; }
   .scene-over { position: absolute; z-index: 2; left: 20px; bottom: 124px; pointer-events: none; }
   .scene-bottom { position: absolute; z-index: 2; left: 20px; right: 20px; bottom: 20px; display: flex; justify-content: flex-end; pointer-events: none; }
@@ -127,6 +129,7 @@
 
   <section class="stage" aria-label="Station day simulation">
     <div class="scene" id="scene">
+      <video id="orbitVideo" src="../../assets/iss/cupola-orbit.mp4" muted loop playsinline preload="auto" aria-hidden="true"></video>
       <canvas id="sky" role="img" aria-label="Illustrated Cupola view of Earth from orbit, changing from sunrise to day to night as the day on board progresses">Illustrated Cupola view of Earth.</canvas>
       <div class="flash" id="flash"></div>
       <div class="scene-top">
@@ -134,7 +137,7 @@
         <span class="scene-hud">0G · On orbit</span>
       </div>
       <div class="scene-over"><span class="note" id="overTag">Over · South America</span></div>
-      <div class="scene-bottom"><span class="note">Illustrative view · not to scale</span></div>
+      <div class="scene-bottom"><span class="note" id="sceneCredit">Illustrative view · not to scale</span></div>
     </div>
 
     <aside class="readout">
@@ -212,9 +215,11 @@
   const DAY = 1440, P = 92.9, PHI0 = 50, DAY_FRAC = 0.58;        // minutes; PHI0 puts 16 sunrises inside the day
   const INC = 51.6 * Math.PI / 180, OMEGA_E = 360 / 1436.07;    // inclination (rad); Earth rotation (deg/min)
   const phase = (t) => (((t + PHI0) / P) % 1 + 1) % 1;
-  const gOf = (t) => { const f = phase(t); return f > 0.5 ? f - 1 : f; };          // 0 = sunrise, DAY_FRAC = sunset
-  const night = (t) => { const g = gOf(t); return g < 0.3 ? 1 - smooth(-0.04, 0, g) : smooth(DAY_FRAC - 0.04, DAY_FRAC, g); };
-  const nightSoft = (t) => { const g = gOf(t); return g < 0.3 ? 1 - smooth(-0.1, 0.06, g) : smooth(DAY_FRAC - 0.08, DAY_FRAC + 0.05, g); };   // wider ramps, for the chart line
+  // 0 = sunrise, DAY_FRAC = sunset. Wraps in the middle of the night (not at 0.5), so neither ramp is cut in half.
+  const gOf = (t) => { const f = phase(t); return f > 0.79 ? f - 1 : f; };
+  const nightRamp = (t, w) => { const g = gOf(t); return g < 0.29 ? 1 - smooth(-w, w, g) : smooth(DAY_FRAC - w, DAY_FRAC + w, g); };
+  const night = (t) => nightRamp(t, 0.02);
+  const nightSoft = (t) => nightRamp(t, 0.14);                                       // wide ease-in-out ramps, for the chart line
   const bloom = (t) => { const g = gOf(t); return Math.max(Math.exp(-Math.pow(g / 0.03, 2)), Math.exp(-Math.pow((g - DAY_FRAC) / 0.03, 2))); };
   const sunrisesSoFar = (t) => clamp(Math.floor((t + PHI0) / P), 0, 16);
   const nextEvent = (t) => { const f = phase(t); return f < DAY_FRAC ? { label: 'Next sunset', mins: (DAY_FRAC - f) * P, frac: f / DAY_FRAC } : { label: 'Next sunrise', mins: (1 - f) * P, frac: (f - DAY_FRAC) / (1 - DAY_FRAC) }; };
@@ -269,7 +274,7 @@
   const chart = $('chart');
   const xOf = (t) => t / DAY * 1280;
   const yOf = (t) => 30 + 170 * nightSoft(t);
-  const pts = []; for (let i = 0; i <= 288; i++) pts.push(i * DAY / 288);
+  const pts = []; for (let i = 0; i <= 1440; i++) pts.push(i * DAY / 1440);   // one point per minute, so the ramps stay smooth
   const pathD = pts.map((t, i) => `${i ? 'L' : 'M'}${xOf(t).toFixed(1)} ${yOf(t).toFixed(1)}`).join(' ');
   $('curveDim').setAttribute('d', pathD); $('curveDone').setAttribute('d', pathD);
   const mk = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
@@ -312,6 +317,28 @@
   let W = 0, H = 0, DPR = 1;
   const resize = () => { DPR = Math.min(devicePixelRatio || 1, 2); W = scene.clientWidth; H = scene.clientHeight; sky.width = W * DPR; sky.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); };
   new ResizeObserver(resize).observe(scene);
+
+  // Optional looping video of one orbit (day → night). If it is missing, the photo + light overlays below are used.
+  // VIDEO_SUNRISE: fraction of the clip where the sunrise happens, so the clip lines up with the daylight chart.
+  const video = $('orbitVideo'), VIDEO_SUNRISE = 0.89;
+  let useVideo = false;
+  const onVideo = () => { video.currentTime = ((phase(state.t) + VIDEO_SUNRISE) % 1) * video.duration; useVideo = true; scene.classList.add('has-video'); $('sceneCredit').textContent = 'Time-lapse: NASA · illustrative timing'; };
+  if (video.readyState >= 2) queueMicrotask(onVideo); else video.addEventListener('loadeddata', onVideo);   // may load before this script runs; deferred so #t= is applied first
+  const syncVideo = (t) => {
+    const idle = !state.playing && !state.dragging && state.t === state.target;
+    if (idle && !SHOT) { if (video.paused) video.play().catch(() => {}); return; }   // free-running loop
+    if (!video.paused) video.pause();
+    const want = ((phase(t) + VIDEO_SUNRISE) % 1) * video.duration;                    // slider scrubs the orbit
+    if (!video.seeking && Math.abs(video.currentTime - want) > 0.04) video.currentTime = want;
+  };
+  // While the video runs on its own, it drives the clock (and so the slider): one pass of the clip = one orbit.
+  const followVideo = (t) => {
+    const vp = ((video.currentTime / video.duration - VIDEO_SUNRISE) % 1 + 1) % 1;
+    let d = vp - phase(t); d -= Math.round(d);                                         // shortest way round the loop
+    let nt = t + d * P;
+    if (nt > DAY) nt -= 15 * P;                                                        // past midnight: back 15 orbits, same view
+    return Math.max(0, nt);
+  };
 
   // Areas of the photo where Earth is visible (fractions of the image), used for the night lights.
   const EARTH_AREAS = [
@@ -356,6 +383,7 @@
   };
 
   const drawScene = (t, time) => {
+    if (useVideo) { ctx.clearRect(0, 0, W, H); syncVideo(t); return drawMap(t, time); }
     if (!photo.complete || !photo.naturalWidth) { ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, W, H); return; }
     const scale = Math.max(W / photo.naturalWidth, H / photo.naturalHeight), iw = photo.naturalWidth * scale, ih = photo.naturalHeight * scale, ox = (W - iw) / 2, oy = (H - ih) / 2;
     ctx.drawImage(photo, ox, oy, iw, ih);
@@ -419,6 +447,7 @@
     rafId = null;
     const dt = Math.min((now - prev) / 1000, 0.05); prev = now;
     if (state.playing) { state.target = Math.min(DAY, state.target + dt * RATE); if (state.target >= DAY) { state.playing = false; syncPlay(); } }
+    if (useVideo && !SHOT && !state.playing && !state.dragging && state.t === state.target && !video.paused && !video.seeking) state.target = state.t = followVideo(state.t);
     state.t = state.playing ? state.target : lerp(state.t, state.target, 1 - Math.exp(-dt * 14));
     if (Math.abs(state.t - state.target) < 0.05) state.t = state.target;
     const t = state.t;
