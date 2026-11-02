@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORBIT · Simulators</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #090909; --ink: #050505; --text: #FFF7ED; --text-2: #ABABAB;
+    --accent: #F5983B; --accent-soft: #FFB56E; --line: #414141;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 80px 16px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; color: var(--accent-soft); }
+  h1 { font-size: clamp(40px, 6vw, 66px); font-weight: 800; letter-spacing: -2.4px; margin: 16px 0; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 560px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; margin-top: 64px; }
+  a.card { display: block; color: inherit; text-decoration: none; background: var(--ink); border: 1px solid var(--line); border-radius: 2px; overflow: hidden; transition: border-color .2s; }
+  a.card:hover, a.card:focus-visible { border-color: var(--accent); outline: none; }
+  .card img { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; }
+  .card div { padding: 24px; }
+  .card h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin: 8px 0; }
+  .card p { font-size: 14px; color: var(--text-2); }
+  .cta { display: inline-block; margin-top: 24px; font-size: 12px; font-weight: 700; letter-spacing: .5px; color: var(--accent); }
+  footer { margin-top: 80px; font-size: 14px; color: var(--text-2); }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">ORBIT · Flight simulators</p>
+  <h1>Feel the flight first.</h1>
+  <p class="lead">Pick a trip and try its interactive simulator.</p>
+
+  <div class="grid">
+    <a class="card" href="prototypes/orbit-flight/index.html">
+      <img src="assets/orbit-flight/scene-t400.png" alt="Earth seen from orbit through the capsule window">
+      <div><p class="eyebrow">Mission 01</p><h2>Earth Orbit</h2>
+      <p>Drag the timeline and feel the G-force, weightlessness and the view.</p><span class="cta">TRY SIMULATOR →</span></div>
+    </a>
+    <a class="card" href="prototypes/moon-flight/index.html">
+      <img src="assets/moon-flight/scene-t320-v2.png" alt="The Moon seen from the cabin window">
+      <div><p class="eyebrow">Mission 02</p><h2>Moon Flyby</h2>
+      <p>Earth the size of your thumb, radio silence and delayed messages.</p><span class="cta">TRY SIMULATOR →</span></div>
+    </a>
+    <a class="card" href="prototypes/iss-flight/index.html">
+      <img src="assets/iss-flight/scene-1440.png" alt="View of Earth from the station Cupola">
+      <div><p class="eyebrow">Mission 03</p><h2>Space Station</h2>
+      <p>A day on board with 16 sunrises, and where you are over the planet.</p><span class="cta">TRY SIMULATOR →</span></div>
+    </a>
+    <a class="card" href="prototypes/mars-flight/index.html">
+      <img src="assets/mars-flight/prototype.png" alt="Earth to Mars transfer trajectory">
+      <div><p class="eyebrow">Coming soon</p><h2>Mars</h2>
+      <p>Choose a departure date and see the route, travel time and cost.</p><span class="cta">TRY SIMULATOR →</span></div>
+    </a>
+  </div>
+
+  <footer>Illustrative simulations · example data, not to scale.</footer>
+</main>
+</body>
+</html>
